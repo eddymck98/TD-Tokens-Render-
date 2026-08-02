@@ -956,8 +956,11 @@ if st.session_state.user is None:
                 try:
                     res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
                     st.session_state.user = res.user
+                    
+                    # SAVE THE SESSION TOKEN TO COOKIES FOR PERSISTENCE
                     if res.session and res.session.access_token:
                         controller.set("sb_access_token", res.session.access_token, max_age=2592000)
+                        
                     st.success("Log in successful!")
                     st.rerun()
                 except Exception as e:
