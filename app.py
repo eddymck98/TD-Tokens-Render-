@@ -546,7 +546,7 @@ st.markdown(f"""
         color: #ffffff !important;
     }}
 
-    /* --- COMPREHENSIVE SELECTBOX & INPUT BACKGROUND FIX --- */
+    /* --- FORCE DARK THEME OVERRIDES FOR DYNAMIC STATES & BUTTONS --- */
     .stSelectbox div[data-baseweb="select"] > div,
     div[data-baseweb="select"] > div,
     div[data-baseweb="base-input"],
@@ -556,10 +556,12 @@ st.markdown(f"""
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
     }}
-    div[data-baseweb="select"] span, div[data-baseweb="select"] input {{
-        color: #ffffff !important;
-    }}
-    div[role="listbox"] div, div[role="option"] {{
+    div[data-baseweb="select"] span, 
+    div[data-baseweb="select"] div,
+    ul[data-baseweb="menu"],
+    li[data-baseweb="option"],
+    div[role="listbox"],
+    div[role="dialog"] {{
         background-color: #0f172a !important;
         color: #ffffff !important;
     }}
@@ -568,9 +570,15 @@ st.markdown(f"""
         color: #38bdf8 !important;
     }}
 
-    div.stButton > button {{
-        color: #ffffff !important;
+    /* Fix active focus states on inputs and buttons to stop white flashing */
+    div.stButton > button,
+    div.stButton > button:active,
+    div.stButton > button:focus,
+    button[kind="secondary"],
+    button[kind="secondary"]:active,
+    button[kind="secondary"]:focus {{
         background-color: rgba(30, 41, 59, 0.9) !important;
+        color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         border-radius: 12px !important;
         font-family: 'Teko', sans-serif !important;
@@ -596,6 +604,19 @@ st.markdown(f"""
     div.stButton > button[kind="primary"]:hover, div.stFormSubmitButton > button:hover {{
         transform: translateY(-2px);
         box-shadow: 0 10px 30px {user_team_color}99 !important;
+    }}
+
+    /* Fix expandable containers and dropdown trigger states */
+    details[data-testid="stExpander"] {{
+        background-color: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 12px !important;
+    }}
+    details[data-testid="stExpander"] summary {{
+        color: #f8fafc !important;
+    }}
+    details[data-testid="stExpander"] summary:hover {{
+        color: #38bdf8 !important;
     }}
 
     .stTextInput > label, .stNumberInput > label, .stRadio > label, .stSelectbox > label {{
