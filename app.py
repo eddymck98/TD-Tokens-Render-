@@ -1172,12 +1172,12 @@ else:
     """, unsafe_allow_html=True)
 
     if profile.get("is_admin"):
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leaders, tab_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🏆 Leaderboard", "⚙️ Admin Control"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_leaders, tab_admin = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "🏆 Leaderboard", "⚙️ Admin Control"]
         )
     else:
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leaders = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🏆 Leaderboard"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_leaders = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "🏆 Leaderboard"]
         )
 
     # ------------------------------------------
@@ -2259,7 +2259,106 @@ else:
                 st.info("Side-by-side historical comparison will unlock here automatically once at least one week has been fully graded by the Admin and other players have participated!")
 
     # ------------------------------------------
-    # TAB 5: LEADERBOARD & HALL OF FAME
+    # TAB 5: CUSTOM LEAGUES
+    # ------------------------------------------
+    with tab_leagues:
+        st.header("🛡️ Custom Leagues Hub")
+        st.caption("Create private mini-leagues with your mates, share invite codes, and compete on dedicated custom leaderboards!")
+        st.write("")
+
+        col_create, col_join = st.columns(2)
+
+        with col_create:
+            st.subheader("➕ Create a League")
+            with st.form("create_league_form"):
+                new_league_name = st.text_input("League Name", placeholder="e.g., Office Chumps")
+                submit_create_league = st.form_submit_button("Create League 🚀", type="primary")
+
+                if submit_create_league:
+                    if not new_league_name.strip():
+                        st.error("Please enter a valid league name.")
+                    else:
+                        import random as r_mod, string as s_mod
+                        invite_code = ''.join(r_mod.choices(s_mod.ascii_uppercase + s_mod.digits, k=6))
+                        try:
+                            res_l = supabase.table("leagues").insert({
+                                "league_name": new_league_name.strip(),
+                                "invite_code": invite_code,
+                                "created_by": user_id
+                            }).execute()
+                            
+                            if res_l.data:
+                                new_league_id = res_l.data[0]["id"]
+                                supabase.table("league_members").insert({
+                                    "league_id": new_league_id,
+                                    "user_id": user_id
+                                }).execute()
+                                st.success(f"League '{new_league_name}' created successfully! Invite Code: **{invite_code}**")
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error creating league: {e}")
+
+        with col_join:
+            st.subheader("🔗 Join a League")
+            with st.form("join_league_form"):
+                code_input = st.text_input("Enter 6-Character Invite Code", placeholder="e.g., A7X9P2")
+                submit_join_league = st.form_submit_button("Join League 🤝", type="primary")
+
+                if submit_join_league:
+                    clean_code = code_input.strip().upper()
+                    if not clean_code:
+                        st.warning("Please enter an invite code.")
+                    else:
+                        found_league = supabase.table("leagues").select("id, league_name").eq("invite_code", clean_code).execute().data
+                        if not found_league:
+                            st.error("Invalid invite code. Please check with your league commissioner.")
+                        else:
+                            target_league = found_league[0]
+                            target_league_id = target_league["id"]
+                            
+                            # Check if already joined
+                            existing_member = supabase.table("league_members").select("id").eq("league_id", target_league_id).eq("user_id", user_id).execute().data
+                            if existing_member:
+                                st.warning(f"You are already a member of '{target_league['league_name']}'!")
+                            else:
+                                supabase.table("league_members").insert({
+                                    "league_id": target_league_id,
+                                    "user_id": user_id
+                                }).execute()
+                                st.success(f"Successfully joined '{target_league['league_name']}'!")
+                                st.rerun()
+
+        st.divider()
+        st.subheader("📋 Your Active Leagues")
+        
+        my_memberships = supabase.table("league_members").select("league_id, leagues(league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
+        
+        if not my_memberships:
+            st.info("You haven't joined or created any custom leagues yet. Use the tools above to get started!")
+        else:
+            for mem in my_memberships:
+                league_info = mem.get("leagues")
+                if league_info:
+                    l_name = league_info["league_name"]
+                    l_code = league_info["invite_code"]
+                    l_id = mem["league_id"]
+                    
+                    members_res = supabase.table("league_members").select("profiles(full_name, tokens)").eq("league_id", l_id).execute().data
+                    member_count = len(members_res) if members_res else 0
+                    
+                    st.markdown(f"""
+                        <div class="summary-box">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 style="margin: 0; color: #ffffff;">🛡️ {l_name}</h3>
+                                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Invite Code: <b style="color: #38bdf8; letter-spacing: 1px;">{l_code}</b> | Members: <b>{member_count}</b></p>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+    # ------------------------------------------
+    # TAB 6: LEADERBOARD & HALL OF FAME
     # ------------------------------------------
     with tab_leaders:
         st.header("🏆 League Standings & Head-to-Head")
@@ -2267,100 +2366,122 @@ else:
         player_stats = get_cached_leaderboard_stats()
         
         if player_stats:
-            with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
-                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id]
-                if all_other_names:
-                    compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
-                    my_stat = next(p for p in player_stats if p["id"] == user_id)
-                    rival_stat = next(p for p in player_stats if p["full_name"] == compare_name)
-                    
-                    c1, c2, c3 = st.columns([3, 1, 3])
-                    with c1:
-                        st.markdown(f"""
-                        <div class="vs-card">
-                            <h3>{my_stat.get('avatar_emoji', '🏈')} You ({my_stat['full_name']})</h3>
-                            <h2 style="color: {user_team_color};">{my_stat['tokens']} 🪙</h2>
-                            <p><b>Title:</b> {get_earned_title(user_id)}</p>
-                            <p><b>Win Rate:</b> {my_stat['win_rate']}%</p>
-                            <p><b>Correct TDs:</b> {my_stat['correct_tds']}</p>
-                            <p><b>Nemesis:</b> <span style="color:#f87171;">{my_stat['nemesis_name']}</span> ({my_stat['nemesis_score']})</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with c2: st.markdown("<h1 style='text-align:center; margin-top:50px;'>VS</h1>", unsafe_allow_html=True)
-                    with c3:
-                        r_color = NFL_TEAM_DATA.get(rival_stat.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])["color"]
-                        r_title = get_earned_title(rival_stat["id"])
-                        st.markdown(f"""
-                        <div class="vs-card">
-                            <h3>{rival_stat.get('avatar_emoji','🏈')} {rival_stat['full_name']}</h3>
-                            <h2 style="color: {r_color};">{rival_stat['tokens']} 🪙</h2>
-                            <p><b>Title:</b> {r_title}</p>
-                            <p><b>Win Rate:</b> {rival_stat['win_rate']}%</p>
-                            <p><b>Correct TDs:</b> {rival_stat['correct_tds']}</p>
-                            <p><b>Nemesis:</b> <span style="color:#f87171;">{rival_stat['nemesis_name']}</span> ({rival_stat['nemesis_score']})</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-            
-            st.divider()
-            
-            current_rank = 1
-            prev_score, prev_tds = None, None
-            for idx, p in enumerate(player_stats):
-                score, tds = p["tokens"], p["correct_tds"]
-                if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
-                else: current_rank, display_rank = idx + 1, idx + 1
-                prev_score, prev_tds = score, tds
-                
-                av = p.get("avatar_emoji") or "🏈"
-                p_border = p.get("avatar_border") or "solid"
-                p_bg_col = p.get("avatar_color") or "#1e3a8a"
-                t_info = NFL_TEAM_DATA.get(p.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
-                team_name = p.get("favorite_team") or "🏈 Free Agent / Neutral"
-                fav_pl = p.get("favorite_player", "")
-                nem_name_card = p.get("nemesis_name", "None")
-                nem_score_card = p.get("nemesis_score", 0)
-                win_rate_val = p['win_rate']
-                streak_val = p['streak']
-                p_title = get_earned_title(p["id"])
-                
-                showcased = p.get("featured_badges") or []
-                if not showcased or not isinstance(showcased, list):
-                    showcased = p.get("unlocked_badges", [])[:3] 
-                
-                badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:12px;">No Badges Displayed</span>'
-                
-                podium_class = "leaderboard-row"
-                if display_rank == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
-                elif display_rank == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
-                elif display_rank == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
-                else: rank_display = f"#{display_rank}"
-                
-                st.markdown(f"""
-                    <div class="{podium_class}">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <span style="font-family: 'Bebas Neue'; font-size: 26px; color: #fbbf24; width: 45px;">{rank_display}</span>
-                                <div style="border: 3px {p_border} {t_info['color']}; border-radius: 8px; padding: 2px 6px; background: {p_bg_col};">
-                                    <span style="font-size: 24px;">{av}</span>
-                                </div>
-                                <img src="{t_info['logo']}" style="width: 32px; height: 32px;" />
-                                <div>
-                                    <b style="font-size: 19px; color: #ffffff;">{p['full_name']}</b> <span style="font-size:12px; color:#38bdf8; font-weight:600; margin-left:6px;">[{p_title}]</span> {f'<span style="font-size:13px; color:#38bdf8; margin-left:6px;">⭐ {fav_pl}</span>' if fav_pl else ''}
-                                    <div style="font-size: 13px; color: #94a3b8;">{team_name} • ⚔️ Nemesis: <span style="color:#f87171;">{nem_name_card}</span> ({nem_score_card})</div>
-                                </div>
+            # --- LEAGUE FILTER SELECTOR ---
+            my_memberships_lb = supabase.table("league_members").select("league_id, leagues(league_name)").eq("user_id", user_id).execute().data
+            league_filter_options = {"🌐 Global League (Everyone)": "global"}
+            if my_memberships_lb:
+                for m_item in my_memberships_lb:
+                    l_obj = m_item.get("leagues")
+                    if l_obj:
+                        league_filter_options[f"🛡️ {l_obj['league_name']}"] = m_item["league_id"]
+
+            selected_league_filter_label = st.selectbox("Select Leaderboard View", list(league_filter_options.keys()), key="lb_league_view_selector")
+            selected_league_filter_id = league_filter_options[selected_league_filter_label]
+
+            filtered_player_stats = player_stats
+            if selected_league_filter_id != "global":
+                # Fetch user IDs belonging to this custom league
+                custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
+                allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
+                filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
+
+            if not filtered_player_stats:
+                st.info("No players found in this custom league yet.")
+            else:
+                with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
+                    all_other_names = [p["full_name"] for p in filtered_player_stats if p["id"] != user_id]
+                    if all_other_names:
+                        compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
+                        my_stat = next(p for p in filtered_player_stats if p["id"] == user_id, filtered_player_stats[0])
+                        rival_stat = next(p for p in filtered_player_stats if p["full_name"] == compare_name)
+                        
+                        c1, c2, c3 = st.columns([3, 1, 3])
+                        with c1:
+                            st.markdown(f"""
+                            <div class="vs-card">
+                                <h3>{my_stat.get('avatar_emoji', '🏈')} You ({my_stat['full_name']})</h3>
+                                <h2 style="color: {user_team_color};">{my_stat['tokens']} 🪙</h2>
+                                <p><b>Title:</b> {get_earned_title(user_id)}</p>
+                                <p><b>Win Rate:</b> {my_stat['win_rate']}%</p>
+                                <p><b>Correct TDs:</b> {my_stat['correct_tds']}</p>
+                                <p><b>Nemesis:</b> <span style="color:#f87171;">{my_stat['nemesis_name']}</span> ({my_stat['nemesis_score']})</p>
                             </div>
-                            <div style="text-align: right;"><span style="font-family: 'Bebas Neue'; font-size: 30px; color: #38bdf8;">{p['tokens']} 🪙</span></div>
+                            """, unsafe_allow_html=True)
+                        with c2: st.markdown("<h1 style='text-align:center; margin-top:50px;'>VS</h1>", unsafe_allow_html=True)
+                        with c3:
+                            r_color = NFL_TEAM_DATA.get(rival_stat.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])["color"]
+                            r_title = get_earned_title(rival_stat["id"])
+                            st.markdown(f"""
+                            <div class="vs-card">
+                                <h3>{rival_stat.get('avatar_emoji','🏈')} {rival_stat['full_name']}</h3>
+                                <h2 style="color: {r_color};">{rival_stat['tokens']} 🪙</h2>
+                                <p><b>Title:</b> {r_title}</p>
+                                <p><b>Win Rate:</b> {rival_stat['win_rate']}%</p>
+                                <p><b>Correct TDs:</b> {rival_stat['correct_tds']}</p>
+                                <p><b>Nemesis:</b> <span style="color:#f87171;">{rival_stat['nemesis_name']}</span> ({rival_stat['nemesis_score']})</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                
+                st.divider()
+                
+                current_rank = 1
+                prev_score, prev_tds = None, None
+                for idx, p in enumerate(filtered_player_stats):
+                    score, tds = p["tokens"], p["correct_tds"]
+                    if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
+                    else: current_rank, display_rank = idx + 1, idx + 1
+                    prev_score, prev_tds = score, tds
+                    
+                    av = p.get("avatar_emoji") or "🏈"
+                    p_border = p.get("avatar_border") or "solid"
+                    p_bg_col = p.get("avatar_color") or "#1e3a8a"
+                    t_info = NFL_TEAM_DATA.get(p.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
+                    team_name = p.get("favorite_team") or "🏈 Free Agent / Neutral"
+                    fav_pl = p.get("favorite_player", "")
+                    nem_name_card = p.get("nemesis_name", "None")
+                    nem_score_card = p.get("nemesis_score", 0)
+                    win_rate_val = p['win_rate']
+                    streak_val = p['streak']
+                    p_title = get_earned_title(p["id"])
+                    
+                    showcased = p.get("featured_badges") or []
+                    if not showcased or not isinstance(showcased, list):
+                        showcased = p.get("unlocked_badges", [])[:3] 
+                    
+                    badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:12px;">No Badges Displayed</span>'
+                    
+                    podium_class = "leaderboard-row"
+                    if display_rank == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
+                    elif display_rank == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
+                    elif display_rank == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
+                    else: rank_display = f"#{display_rank}"
+                    
+                    st.markdown(f"""
+                        <div class="{podium_class}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-family: 'Bebas Neue'; font-size: 26px; color: #fbbf24; width: 45px;">{rank_display}</span>
+                                    <div style="border: 3px {p_border} {t_info['color']}; border-radius: 8px; padding: 2px 6px; background: {p_bg_col};">
+                                        <span style="font-size: 24px;">{av}</span>
+                                    </div>
+                                    <img src="{t_info['logo']}" style="width: 32px; height: 32px;" />
+                                    <div>
+                                        <b style="font-size: 19px; color: #ffffff;">{p['full_name']}</b> <span style="font-size:12px; color:#38bdf8; font-weight:600; margin-left:6px;">[{p_title}]</span> {f'<span style="font-size:13px; color:#38bdf8; margin-left:6px;">⭐ {fav_pl}</span>' if fav_pl else ''}
+                                        <div style="font-size: 13px; color: #94a3b8;">{team_name} • ⚔️ Nemesis: <span style="color:#f87171;">{nem_name_card}</span> ({nem_score_card})</div>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;"><span style="font-family: 'Bebas Neue'; font-size: 30px; color: #38bdf8;">{p['tokens']} 🪙</span></div>
+                            </div>
+                            <div class="stat-pill-container">
+                                <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win Rate</span>
+                                <span class="stat-pill">🏈 {tds} TD Hits</span>
+                                <span class="stat-pill">🔥 Streak: {streak_val}</span>
+                            </div>
+                            <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; margin-top: 8px;">
+                                <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-right: 8px;">Showcase:</span> {badges_html}
+                            </div>
                         </div>
-                        <div class="stat-pill-container">
-                            <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win Rate</span>
-                            <span class="stat-pill">🏈 {tds} TD Hits</span>
-                            <span class="stat-pill">🔥 Streak: {streak_val}</span>
-                        </div>
-                        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; margin-top: 8px;">
-                            <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-right: 8px;">Showcase:</span> {badges_html}
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
         st.divider()
         st.subheader("💬 League Trash Talk Feed")
@@ -2460,7 +2581,7 @@ else:
                 st.dataframe(pd.DataFrame(data_2023), use_container_width=True, hide_index=True)
 
     # ------------------------------------------
-    # TAB 6: ADMIN CONTROL
+    # TAB 7: ADMIN CONTROL
     # ------------------------------------------
     if profile.get("is_admin"):
         with tab_admin:
