@@ -2316,7 +2316,6 @@ else:
                             target_league = found_league[0]
                             target_league_id = target_league["id"]
                             
-                            # Check if already joined
                             existing_member = supabase.table("league_members").select("id").eq("league_id", target_league_id).eq("user_id", user_id).execute().data
                             if existing_member:
                                 st.warning(f"You are already a member of '{target_league['league_name']}'!")
@@ -2380,7 +2379,6 @@ else:
 
             filtered_player_stats = player_stats
             if selected_league_filter_id != "global":
-                # Fetch user IDs belonging to this custom league
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
                 allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
                 filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
@@ -2392,8 +2390,8 @@ else:
                     all_other_names = [p["full_name"] for p in filtered_player_stats if p["id"] != user_id]
                     if all_other_names:
                         compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
-                        my_stat = next(p for p in filtered_player_stats if p["id"] == user_id, filtered_player_stats[0])
-                        rival_stat = next(p for p in filtered_player_stats if p["full_name"] == compare_name)
+                        my_stat = next((p for p in filtered_player_stats if p["id"] == user_id), filtered_player_stats[0])
+                        rival_stat = next((p for p in filtered_player_stats if p["full_name"] == compare_name), filtered_player_stats[0])
                         
                         c1, c2, c3 = st.columns([3, 1, 3])
                         with c1:
