@@ -32,9 +32,7 @@ supabase = get_supabase_client()
 if "user" not in st.session_state or st.session_state.user is None:
     st.session_state.user = None
     try:
-        # Check if a persistent session cookie exists
         saved_token = controller.get("td_tokens_session")
-        
         if saved_token:
             user_response = supabase.auth.get_user(saved_token)
             if user_response and user_response.user:
@@ -44,7 +42,6 @@ if "user" not in st.session_state or st.session_state.user is None:
                 except Exception:
                     pass
                 
-        # Standard Supabase session fallback
         if st.session_state.user is None:
             current_session = supabase.auth.get_session()
             if current_session and current_session.user:
@@ -71,7 +68,7 @@ def get_cached_all_weekly_questions_meta():
     res = supabase.table("weekly_questions").select("week_number, question_number, winning_answer").neq("week_number", 999).neq("week_number", 998).neq("week_number", 997).neq("week_number", 96).execute()
     return res.data if res.data else []
 
-# --- ROBUST TOKEN RECALCULATOR (WITH RENDER & STREAMLIT FALLBACK) ---
+# --- ROBUST TOKEN RECALCULATOR ---
 def recalculate_all_user_balances(supabase_client):
     admin_supabase = supabase_client
     try:
@@ -97,7 +94,6 @@ def recalculate_all_user_balances(supabase_client):
     all_tds = admin_supabase.table("touchdown_picks").select("*").execute().data
     
     q_map = {q["id"]: str(q.get("winning_answer", "")).strip() for q in all_questions}
-    
     user_net_changes = {u["id"]: 0 for u in all_users}
     
     for b in all_bets:
@@ -698,8 +694,8 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
         
     weeks_played = set()
     total_lifetime_won = 0
-    
     weekly_nets = {}
+    
     for b in u_bets:
         w_num = b['week_number']
         weeks_played.add(w_num)
@@ -926,7 +922,6 @@ def get_cached_leaderboard_stats():
         
     return sorted(stats, key=lambda x: (-x["tokens"], -x["correct_tds"], x["full_name"]))
 
-
 is_signin_locked = False
 is_signup_locked = False
 try:
@@ -962,7 +957,6 @@ if st.session_state.user is None:
                     
                     if res.session and res.session.access_token:
                         token_str = res.session.access_token
-                        # Save securely into a persistent browser cookie (lasts 30 days)
                         controller.set("td_tokens_session", token_str, max_age=2592000)
                         
                     st.success("Log in successful!")
@@ -1012,8 +1006,9 @@ if st.session_state.user is None:
                     try:
                         res = supabase.auth.sign_up({"email": reg_email.strip(), "password": reg_password})
                         if res.user:
+                            new_uid = res.user.id
                             supabase.table("profiles").insert({
-                                "id": res.user.id,
+                                "id": new_uid,
                                 "email": reg_email.strip(),
                                 "full_name": combined_full_name,
                                 "tokens": 10,
@@ -1028,6 +1023,16 @@ if st.session_state.user is None:
                                 "avatar_color": "#1e3a8a",
                                 "selected_title": "🏈 Gridiron Contender"
                             }).execute()
+                            
+                            # Automatically join Main League
+                            try:
+                                supabase.table("league_members").insert({
+                                    "league_id": "00000000-0000-0000-0000-000000000001",
+                                    "user_id": new_uid
+                                }).execute()
+                            except Exception:
+                                pass
+
                             st.success("Account created successfully! You can now log in using the Log In tab above.")
                     except Exception as e:
                         st.error(f"Sign up failed: {e}")
@@ -1063,6 +1068,15 @@ else:
                 "avatar_color": "#1e3a8a",
                 "selected_title": "🏈 Gridiron Contender"
             }).execute()
+            
+            try:
+                supabase.table("league_members").insert({
+                    "league_id": "00000000-0000-0000-0000-000000000001",
+                    "user_id": user_id
+                }).execute()
+            except Exception:
+                pass
+
             profile_res = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
             profile = profile_res.data
         except Exception:
@@ -1115,7 +1129,6 @@ else:
     active_tokens_display = profile['tokens']
     if available_weeks:
         latest_w_active = available_weeks[-1]
-        
         is_latest_graded = False
         latest_week_status = supabase.table("weekly_questions").select("winning_answer").eq("week_number", latest_w_active).eq("question_number", 96).execute().data
         if latest_week_status and latest_week_status[0]["winning_answer"] == "CLOSED":
@@ -1141,10 +1154,7 @@ else:
             supabase.auth.sign_out()
         except Exception:
             pass
-            
-        # Clear the persistent cookie
         controller.remove("td_tokens_session")
-        
         st.session_state.user = None
         if "supabase_client" in st.session_state:
             del st.session_state["supabase_client"]
@@ -1367,7 +1377,6 @@ else:
             st.info("No weeks have been graded yet. Place your bets for Week 1 to get started!")
         else:
             latest_graded_week = graded_weeks_list[-1]
-            
             lw_bets = supabase.table("user_bets").select("*, weekly_questions(winning_answer)").eq("user_id", user_id).eq("week_number", latest_graded_week).execute().data
             lw_td = supabase.table("touchdown_picks").select("*").eq("user_id", user_id).eq("week_number", latest_graded_week).execute().data
             
@@ -1445,7 +1454,6 @@ else:
         if history_bets_all or td_wins_map:
             week_tokens = {0: 10}
             curr_tokens = 10
-            
             all_weeks_involved = sorted(list(set([b['week_number'] for b in history_bets_all] + list(td_wins_map.keys()))))
             
             for w in all_weeks_involved:
@@ -1494,23 +1502,9 @@ else:
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(15, 23, 42, 0.75)',
                 margin=dict(l=10, r=10, t=10, b=10),
-                xaxis=dict(
-                    showgrid=True,
-                    gridcolor='rgba(255,255,255,0.08)',
-                    tickfont=dict(color='#cbd5e1', family='Inter', size=12),
-                    zeroline=False
-                ),
-                yaxis=dict(
-                    showgrid=True,
-                    gridcolor='rgba(255,255,255,0.08)',
-                    tickfont=dict(color='#cbd5e1', family='Inter', size=12),
-                    zeroline=False
-                ),
-                hoverlabel=dict(
-                    bgcolor='#0f172a',
-                    font_color='#ffffff',
-                    font_family='Inter'
-                )
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.08)', tickfont=dict(color='#cbd5e1', family='Inter', size=12), zeroline=False),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.08)', tickfont=dict(color='#cbd5e1', family='Inter', size=12), zeroline=False),
+                hoverlabel=dict(bgcolor='#0f172a', font_color='#ffffff', font_family='Inter')
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -2000,7 +1994,6 @@ else:
                         if clear_bet and not is_locked:
                             supabase.table("user_bets").delete().eq("user_id", user_id).eq("week_number", selected_week).execute()
                             supabase.table("touchdown_picks").delete().eq("user_id", user_id).eq("week_number", selected_week).execute()
-                            
                             st.session_state.form_refresh += 1
                             st.success("Your bet choices for this week have been cleared!")
                             st.rerun()
@@ -2092,7 +2085,6 @@ else:
             st.info("No touchdown scorer picks submitted yet.")
 
         st.divider()
-
         st.subheader("📋 Detailed Question Bet History")
         
         history_bets = supabase.table("user_bets").select("*, weekly_questions(week_number, question_number, question_text, winning_answer)").eq("user_id", user_id).execute().data
@@ -2101,14 +2093,7 @@ else:
             st.info("You haven't placed any question bets yet.")
         else:
             user_history_weeks = sorted(list(set([b["week_number"] for b in history_bets])))
-            
-            selected_history_week = st.selectbox(
-                "Filter History by Week", 
-                user_history_weeks, 
-                index=len(user_history_weeks)-1, 
-                key="history_week_dropdown_filter"
-            )
-            
+            selected_history_week = st.selectbox("Filter History by Week", user_history_weeks, index=len(user_history_weeks)-1, key="history_week_dropdown_filter")
             st.write("")
             
             filtered_history_bets = [b for b in history_bets if b["week_number"] == selected_history_week]
@@ -2263,7 +2248,7 @@ else:
     # ------------------------------------------
     with tab_leagues:
         st.header("🛡️ Custom Leagues Hub")
-        st.caption("Create private mini-leagues with your mates, share invite codes, and compete on dedicated custom leaderboards!")
+        st.caption("Create private mini-leagues, manage your group settings, share invite codes, and use localized league chat feeds!")
         st.write("")
 
         col_create, col_join = st.columns(2)
@@ -2328,9 +2313,9 @@ else:
                                 st.rerun()
 
         st.divider()
-        st.subheader("📋 Your Active Leagues")
+        st.subheader("📋 Your Active Leagues & Commissioner Controls")
         
-        my_memberships = supabase.table("league_members").select("league_id, leagues(league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
+        my_memberships = supabase.table("league_members").select("league_id, leagues(id, league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
         
         if not my_memberships:
             st.info("You haven't joined or created any custom leagues yet. Use the tools above to get started!")
@@ -2338,23 +2323,55 @@ else:
             for mem in my_memberships:
                 league_info = mem.get("leagues")
                 if league_info:
+                    l_id = league_info["id"]
                     l_name = league_info["league_name"]
                     l_code = league_info["invite_code"]
-                    l_id = mem["league_id"]
+                    l_creator = league_info["created_by"]
+                    is_commissioner = (l_creator == user_id)
                     
-                    members_res = supabase.table("league_members").select("profiles(full_name, tokens)").eq("league_id", l_id).execute().data
+                    members_res = supabase.table("league_members").select("user_id, profiles(full_name, tokens, favorite_team)").eq("league_id", l_id).execute().data
                     member_count = len(members_res) if members_res else 0
                     
                     st.markdown(f"""
                         <div class="summary-box">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <h3 style="margin: 0; color: #ffffff;">🛡️ {l_name}</h3>
+                                    <h3 style="margin: 0; color: #ffffff;">🛡️ {l_name} { '⭐ (Commissioner)' if is_commissioner else '' }</h3>
                                     <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Invite Code: <b style="color: #38bdf8; letter-spacing: 1px;">{l_code}</b> | Members: <b>{member_count}</b></p>
                                 </div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
+
+                    if is_commissioner:
+                        with st.expander(f"⚙️ Manage League: {l_name}"):
+                            with st.form(f"rename_league_form_{l_id}"):
+                                new_l_name_input = st.text_input("Change League Name", value=l_name, key=f"rename_{l_id}")
+                                update_name_btn = st.form_submit_button("Update League Name 💾")
+                                if update_name_btn:
+                                    if new_l_name_input.strip():
+                                        supabase.table("leagues").update({"league_name": new_l_name_input.strip()}).eq("id", l_id).execute()
+                                        st.success("League name updated!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("League name cannot be blank.")
+
+                            st.write("**Manage Roster / Kick Members:**")
+                            if members_res:
+                                for m in members_res:
+                                    m_uid = m["user_id"]
+                                    m_prof = m.get("profiles", {})
+                                    m_name = m_prof.get("full_name", "Unknown Player")
+                                    if m_uid != user_id:
+                                        col_km1, col_km2 = st.columns([3, 1])
+                                        with col_km1:
+                                            st.markdown(f"• {m_name}")
+                                        with col_km2:
+                                            if st.button(f"Kick", key=f"kick_{l_id}_{m_uid}"):
+                                                supabase.table("league_members").delete().eq("league_id", l_id).eq("user_id", m_uid).execute()
+                                                st.success(f"Removed {m_name} from league.")
+                                                st.rerun()
+                    st.write("")
 
     # ------------------------------------------
     # TAB 6: LEADERBOARD & HALL OF FAME
@@ -2365,121 +2382,122 @@ else:
         player_stats = get_cached_leaderboard_stats()
         
         if player_stats:
-            # --- LEAGUE FILTER SELECTOR ---
-            my_memberships_lb = supabase.table("league_members").select("league_id, leagues(league_name)").eq("user_id", user_id).execute().data
-            league_filter_options = {"🌐 Global League (Everyone)": "global"}
+            # --- LEAGUE FILTER SELECTOR (NO GLOBAL VIEW, ONLY USER LEAGUES) ---
+            my_memberships_lb = supabase.table("league_members").select("league_id, leagues(id, league_name)").eq("user_id", user_id).execute().data
+            league_filter_options = {}
             if my_memberships_lb:
                 for m_item in my_memberships_lb:
                     l_obj = m_item.get("leagues")
                     if l_obj:
-                        league_filter_options[f"🛡️ {l_obj['league_name']}"] = m_item["league_id"]
+                        league_filter_options[f"🛡️ {l_obj['league_name']}"] = l_obj["id"]
 
-            selected_league_filter_label = st.selectbox("Select Leaderboard View", list(league_filter_options.keys()), key="lb_league_view_selector")
-            selected_league_filter_id = league_filter_options[selected_league_filter_label]
+            if not league_filter_options:
+                st.info("You are not part of any leagues yet. Head over to the Leagues tab to join or create one!")
+            else:
+                selected_league_filter_label = st.selectbox("Select League Standings", list(league_filter_options.keys()), key="lb_league_view_selector")
+                selected_league_filter_id = league_filter_options[selected_league_filter_label]
 
-            filtered_player_stats = player_stats
-            if selected_league_filter_id != "global":
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
                 allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
                 filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
 
-            if not filtered_player_stats:
-                st.info("No players found in this custom league yet.")
-            else:
-                with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
-                    all_other_names = [p["full_name"] for p in filtered_player_stats if p["id"] != user_id]
-                    if all_other_names:
-                        compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
-                        my_stat = next((p for p in filtered_player_stats if p["id"] == user_id), filtered_player_stats[0])
-                        rival_stat = next((p for p in filtered_player_stats if p["full_name"] == compare_name), filtered_player_stats[0])
-                        
-                        c1, c2, c3 = st.columns([3, 1, 3])
-                        with c1:
-                            st.markdown(f"""
-                            <div class="vs-card">
-                                <h3>{my_stat.get('avatar_emoji', '🏈')} You ({my_stat['full_name']})</h3>
-                                <h2 style="color: {user_team_color};">{my_stat['tokens']} 🪙</h2>
-                                <p><b>Title:</b> {get_earned_title(user_id)}</p>
-                                <p><b>Win Rate:</b> {my_stat['win_rate']}%</p>
-                                <p><b>Correct TDs:</b> {my_stat['correct_tds']}</p>
-                                <p><b>Nemesis:</b> <span style="color:#f87171;">{my_stat['nemesis_name']}</span> ({my_stat['nemesis_score']})</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with c2: st.markdown("<h1 style='text-align:center; margin-top:50px;'>VS</h1>", unsafe_allow_html=True)
-                        with c3:
-                            r_color = NFL_TEAM_DATA.get(rival_stat.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])["color"]
-                            r_title = get_earned_title(rival_stat["id"])
-                            st.markdown(f"""
-                            <div class="vs-card">
-                                <h3>{rival_stat.get('avatar_emoji','🏈')} {rival_stat['full_name']}</h3>
-                                <h2 style="color: {r_color};">{rival_stat['tokens']} 🪙</h2>
-                                <p><b>Title:</b> {r_title}</p>
-                                <p><b>Win Rate:</b> {rival_stat['win_rate']}%</p>
-                                <p><b>Correct TDs:</b> {rival_stat['correct_tds']}</p>
-                                <p><b>Nemesis:</b> <span style="color:#f87171;">{rival_stat['nemesis_name']}</span> ({rival_stat['nemesis_score']})</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                
-                st.divider()
-                
-                current_rank = 1
-                prev_score, prev_tds = None, None
-                for idx, p in enumerate(filtered_player_stats):
-                    score, tds = p["tokens"], p["correct_tds"]
-                    if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
-                    else: current_rank, display_rank = idx + 1, idx + 1
-                    prev_score, prev_tds = score, tds
-                    
-                    av = p.get("avatar_emoji") or "🏈"
-                    p_border = p.get("avatar_border") or "solid"
-                    p_bg_col = p.get("avatar_color") or "#1e3a8a"
-                    t_info = NFL_TEAM_DATA.get(p.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
-                    team_name = p.get("favorite_team") or "🏈 Free Agent / Neutral"
-                    fav_pl = p.get("favorite_player", "")
-                    nem_name_card = p.get("nemesis_name", "None")
-                    nem_score_card = p.get("nemesis_score", 0)
-                    win_rate_val = p['win_rate']
-                    streak_val = p['streak']
-                    p_title = get_earned_title(p["id"])
-                    
-                    showcased = p.get("featured_badges") or []
-                    if not showcased or not isinstance(showcased, list):
-                        showcased = p.get("unlocked_badges", [])[:3] 
-                    
-                    badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:12px;">No Badges Displayed</span>'
-                    
-                    podium_class = "leaderboard-row"
-                    if display_rank == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
-                    elif display_rank == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
-                    elif display_rank == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
-                    else: rank_display = f"#{display_rank}"
-                    
-                    st.markdown(f"""
-                        <div class="{podium_class}">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <span style="font-family: 'Bebas Neue'; font-size: 26px; color: #fbbf24; width: 45px;">{rank_display}</span>
-                                    <div style="border: 3px {p_border} {t_info['color']}; border-radius: 8px; padding: 2px 6px; background: {p_bg_col};">
-                                        <span style="font-size: 24px;">{av}</span>
-                                    </div>
-                                    <img src="{t_info['logo']}" style="width: 32px; height: 32px;" />
-                                    <div>
-                                        <b style="font-size: 19px; color: #ffffff;">{p['full_name']}</b> <span style="font-size:12px; color:#38bdf8; font-weight:600; margin-left:6px;">[{p_title}]</span> {f'<span style="font-size:13px; color:#38bdf8; margin-left:6px;">⭐ {fav_pl}</span>' if fav_pl else ''}
-                                        <div style="font-size: 13px; color: #94a3b8;">{team_name} • ⚔️ Nemesis: <span style="color:#f87171;">{nem_name_card}</span> ({nem_score_card})</div>
-                                    </div>
+                if not filtered_player_stats:
+                    st.info("No players found in this league yet.")
+                else:
+                    with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
+                        all_other_names = [p["full_name"] for p in filtered_player_stats if p["id"] != user_id]
+                        if all_other_names:
+                            compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
+                            my_stat = next((p for p in filtered_player_stats if p["id"] == user_id), filtered_player_stats[0])
+                            rival_stat = next((p for p in filtered_player_stats if p["full_name"] == compare_name), filtered_player_stats[0])
+                            
+                            c1, c2, c3 = st.columns([3, 1, 3])
+                            with c1:
+                                st.markdown(f"""
+                                <div class="vs-card">
+                                    <h3>{my_stat.get('avatar_emoji', '🏈')} You ({my_stat['full_name']})</h3>
+                                    <h2 style="color: {user_team_color};">{my_stat['tokens']} 🪙</h2>
+                                    <p><b>Title:</b> {get_earned_title(user_id)}</p>
+                                    <p><b>Win Rate:</b> {my_stat['win_rate']}%</p>
+                                    <p><b>Correct TDs:</b> {my_stat['correct_tds']}</p>
+                                    <p><b>Nemesis:</b> <span style="color:#f87171;">{my_stat['nemesis_name']}</span> ({my_stat['nemesis_score']})</p>
                                 </div>
-                                <div style="text-align: right;"><span style="font-family: 'Bebas Neue'; font-size: 30px; color: #38bdf8;">{p['tokens']} 🪙</span></div>
+                                """, unsafe_allow_html=True)
+                            with c2: st.markdown("<h1 style='text-align:center; margin-top:50px;'>VS</h1>", unsafe_allow_html=True)
+                            with c3:
+                                r_color = NFL_TEAM_DATA.get(rival_stat.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])["color"]
+                                r_title = get_earned_title(rival_stat["id"])
+                                st.markdown(f"""
+                                <div class="vs-card">
+                                    <h3>{rival_stat.get('avatar_emoji','🏈')} {rival_stat['full_name']}</h3>
+                                    <h2 style="color: {r_color};">{rival_stat['tokens']} 🪙</h2>
+                                    <p><b>Title:</b> {r_title}</p>
+                                    <p><b>Win Rate:</b> {rival_stat['win_rate']}%</p>
+                                    <p><b>Correct TDs:</b> {rival_stat['correct_tds']}</p>
+                                    <p><b>Nemesis:</b> <span style="color:#f87171;">{rival_stat['nemesis_name']}</span> ({rival_stat['nemesis_score']})</p>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    
+                    st.divider()
+                    
+                    current_rank = 1
+                    prev_score, prev_tds = None, None
+                    for idx, p in enumerate(filtered_player_stats):
+                        score, tds = p["tokens"], p["correct_tds"]
+                        if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
+                        else: current_rank, display_rank = idx + 1, idx + 1
+                        prev_score, prev_tds = score, tds
+                        
+                        av = p.get("avatar_emoji") or "🏈"
+                        p_border = p.get("avatar_border") or "solid"
+                        p_bg_col = p.get("avatar_color") or "#1e3a8a"
+                        t_info = NFL_TEAM_DATA.get(p.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
+                        team_name = p.get("favorite_team") or "🏈 Free Agent / Neutral"
+                        fav_pl = p.get("favorite_player", "")
+                        nem_name_card = p.get("nemesis_name", "None")
+                        nem_score_card = p.get("nemesis_score", 0)
+                        win_rate_val = p['win_rate']
+                        streak_val = p['streak']
+                        p_title = get_earned_title(p["id"])
+                        
+                        showcased = p.get("featured_badges") or []
+                        if not showcased or not isinstance(showcased, list):
+                            showcased = p.get("unlocked_badges", [])[:3] 
+                        
+                        badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:12px;">No Badges Displayed</span>'
+                        
+                        podium_class = "leaderboard-row"
+                        if display_rank == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
+                        elif display_rank == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
+                        elif display_rank == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
+                        else: rank_display = f"#{display_rank}"
+                        
+                        st.markdown(f"""
+                            <div class="{podium_class}">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-family: 'Bebas Neue'; font-size: 26px; color: #fbbf24; width: 45px;">{rank_display}</span>
+                                        <div style="border: 3px {p_border} {t_info['color']}; border-radius: 8px; padding: 2px 6px; background: {p_bg_col};">
+                                            <span style="font-size: 24px;">{av}</span>
+                                        </div>
+                                        <img src="{t_info['logo']}" style="width: 32px; height: 32px;" />
+                                        <div>
+                                            <b style="font-size: 19px; color: #ffffff;">{p['full_name']}</b> <span style="font-size:12px; color:#38bdf8; font-weight:600; margin-left:6px;">[{p_title}]</span> {f'<span style="font-size:13px; color:#38bdf8; margin-left:6px;">⭐ {fav_pl}</span>' if fav_pl else ''}
+                                            <div style="font-size: 13px; color: #94a3b8;">{team_name} • ⚔️ Nemesis: <span style="color:#f87171;">{nem_name_card}</span> ({nem_score_card})</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;"><span style="font-family: 'Bebas Neue'; font-size: 30px; color: #38bdf8;">{p['tokens']} 🪙</span></div>
+                                </div>
+                                <div class="stat-pill-container">
+                                    <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win Rate</span>
+                                    <span class="stat-pill">🏈 {tds} TD Hits</span>
+                                    <span class="stat-pill">🔥 Streak: {streak_val}</span>
+                                </div>
+                                <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; margin-top: 8px;">
+                                    <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-right: 8px;">Showcase:</span> {badges_html}
+                                </div>
                             </div>
-                            <div class="stat-pill-container">
-                                <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win Rate</span>
-                                <span class="stat-pill">🏈 {tds} TD Hits</span>
-                                <span class="stat-pill">🔥 Streak: {streak_val}</span>
-                            </div>
-                            <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; margin-top: 8px;">
-                                <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-right: 8px;">Showcase:</span> {badges_html}
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
 
         st.divider()
         st.subheader("💬 League Trash Talk Feed")
@@ -2633,7 +2651,6 @@ else:
                         
                         db_prompt = raw_txt.split(" | MATCHUP: ")[0] if " | MATCHUP: " in raw_txt else raw_txt
                         session_key = f"m_prompt_w{selected_manage_week}_q{i}"
-                        
                         existing_prompt = st.session_state.get(session_key, db_prompt)
                             
                         existing_away = "🏈 Free Agent / Neutral"
@@ -3036,7 +3053,6 @@ Good luck this week! 🔥"""
                 if st.button("Archive & Reset Balances Now 🔄", type="primary", disabled=not confirm_check):
                     try:
                         all_profiles = get_cached_profiles()
-                        
                         df_archive = pd.DataFrame(all_profiles)
                         df_archive["season_label"] = season_label
                         
