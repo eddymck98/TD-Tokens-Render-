@@ -2245,7 +2245,7 @@ else:
         
         if player_stats:
             with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
-                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id}
+                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id]
                 if all_other_names:
                     compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
                     my_stat = next(p for p in player_stats if p["id"] == user_id)
