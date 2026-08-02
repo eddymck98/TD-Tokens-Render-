@@ -81,7 +81,6 @@ def recalculate_all_user_balances(supabase_client):
     q_map = {q["id"]: str(q.get("winning_answer", "")).strip() for q in all_questions}
     
     user_net_changes = {u["id"]: 0 for u in all_users}
-    user_name_map = {u["id"]: u["full_name"] for u in all_users}
     
     for b in all_bets:
         w_num = b.get("week_number")
@@ -522,9 +521,10 @@ st.markdown(f"""
         margin-bottom: 4px;
     }}
 
+    /* --- FIX TAB LINKS & VISIBILITY --- */
     button[data-baseweb="tab"] {{
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background-color: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 12px !important;
         padding: 10px 22px !important;
         margin-right: 8px !important;
@@ -534,16 +534,39 @@ st.markdown(f"""
         font-family: 'Teko', sans-serif !important;
         font-size: 21px !important;
         letter-spacing: 1.5px !important;
-        color: #cbd5e1 !important;
+        color: #94a3b8 !important;
     }}
     button[aria-selected="true"] {{
         background: linear-gradient(135deg, rgba(30, 58, 138, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.25) !important;
-        border-top: 3px solid {user_team_color} !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-top: 3px solid #fbbf24 !important;
         box-shadow: 0 8px 28px {user_team_color}66 !important;
     }}
     button[aria-selected="true"] * {{
-        color: {user_team_color} !important;
+        color: #ffffff !important;
+    }}
+
+    /* --- FIX WHITE INPUT BOXES (SELECTBOXES & TEXT INPUTS) --- */
+    div[data-baseweb="select"] > div {{
+        background-color: rgba(15, 23, 42, 0.90) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 12px !important;
+    }}
+    div[data-baseweb="select"] span {{
+        color: #ffffff !important;
+    }}
+    div[role="listbox"] ul {{
+        background-color: #0f172a !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }}
+    div[role="option"] {{
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+    }}
+    div[role="option"]:hover {{
+        background-color: #1e3a8a !important;
+        color: #38bdf8 !important;
     }}
 
     div.stButton > button {{
