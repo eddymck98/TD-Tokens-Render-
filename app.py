@@ -4,9 +4,9 @@ import pandas as pd
 import random
 import requests
 import plotly.graph_objects as go
-import streamlit.components.v1 as components
 from datetime import datetime, timezone
 from supabase import create_client, Client
+from streamlit_cookies_controller import CookieController
 
 st.set_page_config(
     page_title="Touchdown Tokens", 
@@ -14,6 +14,9 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+# Initialize the persistent cookie controller
+controller = CookieController()
 
 # --- SUPABASE CONFIGURATION (RENDER & STREAMLIT COMPATIBLE) ---
 def get_supabase_client() -> Client:
@@ -25,50 +28,29 @@ def get_supabase_client() -> Client:
 
 supabase = get_supabase_client()
 
-# --- SECURE LOCALSTORAGE AUTH BRIDGE ---
-def render_auth_bridge():
-    return components.html("""
-        <script>
-            const url = new URL(window.parent.location.href);
-            const token = localStorage.getItem("td_tokens_session");
-            // If token exists in localStorage but isn't in the URL yet, inject it and reload once
-            if (token && !url.searchParams.has("saved_token")) {
-                url.searchParams.set("saved_token", token);
-                window.parent.location.replace(url.toString());
-            }
-        </script>
-    """, height=0)
-
-render_auth_bridge()
-
-# --- AUTHENTICATION STATE & PERSISTENCE CHECK ---
+# --- SECURE COOKIE-BASED AUTH PERSISTENCE ---
 if "user" not in st.session_state or st.session_state.user is None:
     st.session_state.user = None
     try:
-        params = st.query_params
-        saved_token = params.get("saved_token")
+        # Check if a persistent session cookie exists
+        saved_token = controller.get("td_tokens_session")
         
-        # 1. Try authenticating via the localStorage bridge token passed in URL
         if saved_token:
             user_response = supabase.auth.get_user(saved_token)
             if user_response and user_response.user:
                 st.session_state.user = user_response.user
-                # Set the Supabase client session so subsequent requests work seamlessly
                 try:
                     supabase.auth.set_session(saved_token, saved_token)
                 except Exception:
                     pass
-            
-            # Immediately clear out query params so the URL stays clean
-            st.query_params.clear()
                 
-        # 2. Standard Supabase session fallback
+        # Standard Supabase session fallback
         if st.session_state.user is None:
             current_session = supabase.auth.get_session()
             if current_session and current_session.user:
                 st.session_state.user = current_session.user
     except Exception:
-        st.query_params.clear()
+        pass
 
 if "form_refresh" not in st.session_state:
     st.session_state.form_refresh = 0
@@ -963,9 +945,6 @@ except Exception:
 # 1. LOGIN & SIGNUP SCREEN
 # ==========================================
 if st.session_state.user is None:
-    # Render the localstorage bridge check on the login screen
-    render_auth_bridge()
-
     tab_login, tab_signup = st.tabs(["🔒 Log In", "📝 Sign Up"])
     
     with tab_login:
@@ -983,12 +962,8 @@ if st.session_state.user is None:
                     
                     if res.session and res.session.access_token:
                         token_str = res.session.access_token
-                        # Save to browser local storage via JS component quietly
-                        components.html(f"""
-                            <script>
-                                localStorage.setItem("td_tokens_session", "{token_str}");
-                            </script>
-                        """, height=0)
+                        # Save securely into a persistent browser cookie (lasts 30 days)
+                        controller.set("td_tokens_session", token_str, max_age=2592000)
                         
                     st.success("Log in successful!")
                     st.rerun()
@@ -1167,12 +1142,8 @@ else:
         except Exception:
             pass
             
-        components.html("""
-            <script>
-                localStorage.removeItem("td_tokens_session");
-                window.parent.location.reload();
-            </script>
-        """, height=0)
+        # Clear the persistent cookie
+        controller.remove("td_tokens_session")
         
         st.session_state.user = None
         if "supabase_client" in st.session_state:
