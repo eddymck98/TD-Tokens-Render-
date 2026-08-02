@@ -6,6 +6,7 @@ import requests
 import plotly.graph_objects as go
 from datetime import datetime, timezone
 from supabase import create_client, Client
+from streamlit_cookies_controller import CookieController
 
 st.set_page_config(
     page_title="Touchdown Tokens", 
@@ -13,6 +14,9 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+# --- COOKIE CONTROLLER FOR PERSISTENT LOGINS ---
+controller = CookieController(key="cookie_manager")
 
 # --- SUPABASE CONFIGURATION (RENDER & STREAMLIT COMPATIBLE) ---
 def get_supabase_client() -> Client:
@@ -24,15 +28,26 @@ def get_supabase_client() -> Client:
 
 supabase = get_supabase_client()
 
-# --- AUTHENTICATION STATE & PERSISTENCE ---
+# --- AUTHENTICATION STATE & COOKIE PERSISTENCE ---
 if "user" not in st.session_state:
     st.session_state.user = None
     try:
-        current_session = supabase.auth.get_session()
-        if current_session and current_session.user:
-            st.session_state.user = current_session.user
+        # 1. Check if an active session cookie exists from a previous visit
+        saved_token = controller.get("sb_access_token")
+        if saved_token:
+            user_response = supabase.auth.get_user(saved_token)
+            if user_response and user_response.user:
+                st.session_state.user = user_response.user
+        
+        # 2. Fallback to standard Supabase session check if no cookie
+        if st.session_state.user is None:
+            current_session = supabase.auth.get_session()
+            if current_session and current_session.user:
+                st.session_state.user = current_session.user
+                if current_session.access_token:
+                    controller.set("sb_access_token", current_session.access_token, max_age=2592000)
     except Exception:
-        pass
+        controller.remove("sb_access_token")
 
 if "form_refresh" not in st.session_state:
     st.session_state.form_refresh = 0
@@ -246,7 +261,6 @@ st.markdown(f"""
         box-shadow: 6px 0 30px rgba(0,0,0,0.7);
     }}
     
-    /* Force clear link colors and high-contrast text across the app */
     a, a:visited, a:hover, a:active {{
         color: #38bdf8 !important;
         text-decoration: underline !important;
@@ -522,7 +536,6 @@ st.markdown(f"""
         margin-bottom: 4px;
     }}
 
-    /* --- FIX TAB LINKS & VISIBILITY --- */
     button[data-baseweb="tab"] {{
         background-color: rgba(15, 23, 42, 0.85) !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -547,7 +560,6 @@ st.markdown(f"""
         color: #ffffff !important;
     }}
 
-    /* --- FORCE DARK THEME OVERRIDES FOR DYNAMIC STATES & BUTTONS --- */
     .stSelectbox div[data-baseweb="select"] > div,
     div[data-baseweb="select"] > div,
     div[data-baseweb="base-input"],
@@ -571,7 +583,6 @@ st.markdown(f"""
         color: #38bdf8 !important;
     }}
 
-    /* Fix active focus states on inputs and buttons to stop white flashing */
     div.stButton > button,
     div.stButton > button:active,
     div.stButton > button:focus,
@@ -607,7 +618,6 @@ st.markdown(f"""
         box-shadow: 0 10px 30px {user_team_color}99 !important;
     }}
 
-    /* Fix expandable containers and dropdown trigger states */
     details[data-testid="stExpander"] {{
         background-color: rgba(15, 23, 42, 0.85) !important;
         border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -946,6 +956,8 @@ if st.session_state.user is None:
                 try:
                     res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
                     st.session_state.user = res.user
+                    if res.session and res.session.access_token:
+                        controller.set("sb_access_token", res.session.access_token, max_age=2592000)
                     st.success("Log in successful!")
                     st.rerun()
                 except Exception as e:
@@ -1122,6 +1134,7 @@ else:
             supabase.auth.sign_out()
         except Exception:
             pass
+        controller.remove("sb_access_token")
         st.session_state.user = None
         if "supabase_client" in st.session_state:
             del st.session_state["supabase_client"]
