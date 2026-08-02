@@ -31,6 +31,7 @@ def render_auth_bridge():
         <script>
             const url = new URL(window.parent.location.href);
             const token = localStorage.getItem("td_tokens_session");
+            // If token exists in localStorage but isn't in the URL yet, inject it and reload once
             if (token && !url.searchParams.has("saved_token")) {
                 url.searchParams.set("saved_token", token);
                 window.parent.location.replace(url.toString());
@@ -41,21 +42,27 @@ def render_auth_bridge():
 render_auth_bridge()
 
 # --- AUTHENTICATION STATE & PERSISTENCE CHECK ---
-if "user" not in st.session_state:
+if "user" not in st.session_state or st.session_state.user is None:
     st.session_state.user = None
     try:
         params = st.query_params
         saved_token = params.get("saved_token")
         
+        # 1. Try authenticating via the localStorage bridge token passed in URL
         if saved_token:
             user_response = supabase.auth.get_user(saved_token)
             if user_response and user_response.user:
                 st.session_state.user = user_response.user
+                # Set the Supabase client session so subsequent requests work seamlessly
+                try:
+                    supabase.auth.set_session(saved_token, saved_token)
+                except Exception:
+                    pass
             
-            # Immediately clear out query params to prevent loops
+            # Immediately clear out query params so the URL stays clean
             st.query_params.clear()
                 
-        # Standard Supabase session fallback
+        # 2. Standard Supabase session fallback
         if st.session_state.user is None:
             current_session = supabase.auth.get_session()
             if current_session and current_session.user:
