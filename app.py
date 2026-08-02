@@ -279,9 +279,9 @@ st.markdown(f"""
         text-shadow: 0 2px 10px rgba(0,0,0,0.8);
     }}
     .header-logo {{
-        width: 100px;
+        width: 280px;
         filter: drop-shadow(0px 10px 22px {user_team_color}cc);
-        border-radius: 50%;
+        border-radius: 12px;
     }}
     
     @keyframes teamPulse {{
@@ -2245,7 +2245,7 @@ else:
         
         if player_stats:
             with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
-                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id]
+                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id}
                 if all_other_names:
                     compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
                     my_stat = next(p for p in player_stats if p["id"] == user_id)
