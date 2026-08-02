@@ -4,5 +4,4 @@ requests
 plotly
 supabase
 gunicorn
-pip install streamlit-cookies-controller
 streamlit-cookies-controller
