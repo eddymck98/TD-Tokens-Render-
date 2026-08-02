@@ -1,0 +1,55 @@
+<div class="auth-section">
+    {% if not user %}
+        <div class="tabs">
+            <button onclick="showTab('login')">Log In</button>
+            <button onclick="showTab('signup')">Sign Up</button>
+        </div>
+
+        <!-- Log In Form -->
+        <div id="login-tab" class="form-card">
+            <h3>Welcome Back!</h3>
+            <form action="/login" method="POST">
+                <label>Email Address</label>
+                <input type="email" name="email" required>
+                
+                <label>Password</label>
+                <input type="password" name="password" required>
+                
+                <button type="submit" class="btn">Log In</button>
+            </form>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div id="signup-tab" class="form-card" style="display:none;">
+            <h3>Create a New Account</h3>
+            <p>New players start with 10 free tokens!</p>
+            <form action="/signup" method="POST">
+                <label>Full Name</label>
+                <input type="text" name="full_name" required>
+
+                <label>Email Address</label>
+                <input type="email" name="email" required>
+                
+                <label>Password (min 6 chars)</label>
+                <input type="password" name="password" required>
+                
+                <button type="submit" class="btn">Sign Up</button>
+            </form>
+        </div>
+    {% else %}
+        <h3>Logged in as: {{ user }}</h3>
+        <a href="/logout"><button class="btn">Log Out</button></a>
+    {% endif %}
+</div>
+
+<script>
+    function showTab(tabName) {
+        if(tabName === 'login') {
+            document.getElementById('login-tab').style.display = 'block';
+            document.getElementById('signup-tab').style.display = 'none';
+        } else {
+            document.getElementById('login-tab').style.display = 'none';
+            document.getElementById('signup-tab').style.display = 'block';
+        }
+    }
+</script>
