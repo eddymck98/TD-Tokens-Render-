@@ -7,7 +7,12 @@ import plotly.graph_objects as go
 from datetime import datetime, timezone
 from supabase import create_client, Client
 
-st.set_page_config(page_title="Touchdown Tokens", page_icon="🏈", layout="centered")
+st.set_page_config(
+    page_title="Touchdown Tokens", 
+    page_icon="🏈", 
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
 # --- SUPABASE CONFIGURATION (RENDER & STREAMLIT COMPATIBLE) ---
 def get_supabase_client() -> Client:
@@ -50,10 +55,6 @@ def get_cached_all_weekly_questions_meta():
 
 # --- ROBUST TOKEN RECALCULATOR (WITH RENDER & STREAMLIT FALLBACK) ---
 def recalculate_all_user_balances(supabase_client):
-    """
-    Recalculates every user's total token balance from scratch using admin credentials 
-    to bypass RLS restrictions, ensuring all profiles update successfully.
-    """
     admin_supabase = supabase_client
     try:
         service_key = os.environ.get("SUPABASE_SERVICE_KEY") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
@@ -107,7 +108,6 @@ def recalculate_all_user_balances(supabase_client):
                 
     for uid, net_change in user_net_changes.items():
         final_balance = max(0, 10 + net_change)
-        st.warning(f"DEBUG RECALC -> User: {user_name_map.get(uid)} | Net Change: {net_change} | Final Token Balance: {final_balance}")
         admin_supabase.table("profiles").update({"tokens": final_balance}).eq("id", uid).execute()
 
 @st.cache_data
@@ -247,6 +247,16 @@ st.markdown(f"""
         box-shadow: 6px 0 30px rgba(0,0,0,0.7);
     }}
     
+    /* Force clear link colors and high-contrast text across the app */
+    a, a:visited, a:hover, a:active {{
+        color: #38bdf8 !important;
+        text-decoration: underline !important;
+    }}
+    
+    p, span, label, div[data-testid="stMarkdownContainer"] {{
+        color: #f8fafc !important;
+    }}
+
     .nfl-header {{ text-align: center; padding: 12px 0 8px 0; }}
     .nfl-title {{
         font-family: 'Bebas Neue', cursive, sans-serif !important;
@@ -536,6 +546,19 @@ st.markdown(f"""
         color: {user_team_color} !important;
     }}
 
+    div.stButton > button {{
+        color: #ffffff !important;
+        background-color: rgba(30, 41, 59, 0.9) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 12px !important;
+        font-family: 'Teko', sans-serif !important;
+        font-size: 22px !important;
+    }}
+    div.stButton > button:hover {{
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
+    }}
+
     div.stButton > button[kind="primary"], div.stFormSubmitButton > button {{
         background: linear-gradient(135deg, {user_team_color} 0%, #d97706 100%) !important;
         color: #000000 !important;
@@ -812,7 +835,6 @@ def calculate_streak(target_user_id):
 
 @st.cache_data(ttl=60)
 def get_cached_leaderboard_stats():
-    """Fetches and calculates the entire leaderboard, caching it for 60 seconds to prevent UI lag."""
     leader_res = get_cached_profiles()
     stats = []
     if not leader_res:
@@ -848,11 +870,19 @@ def get_cached_leaderboard_stats():
     return sorted(stats, key=lambda x: (-x["tokens"], -x["correct_tds"], x["full_name"]))
 
 
-signin_lock_setting = supabase.table("weekly_questions").select("winning_answer").eq("week_number", 998).execute().data
-is_signin_locked = signin_lock_setting and signin_lock_setting[0]["winning_answer"] == "LOCKED"
+is_signin_locked = False
+is_signup_locked = False
+try:
+    signin_lock_setting = supabase.table("weekly_questions").select("winning_answer").eq("week_number", 998).execute().data
+    is_signin_locked = signin_lock_setting and signin_lock_setting[0]["winning_answer"] == "LOCKED"
+except Exception:
+    pass
 
-signup_lock_setting = supabase.table("weekly_questions").select("winning_answer").eq("week_number", 997).execute().data
-is_signup_locked = signup_lock_setting and signup_lock_setting[0]["winning_answer"] == "LOCKED"
+try:
+    signup_lock_setting = supabase.table("weekly_questions").select("winning_answer").eq("week_number", 997).execute().data
+    is_signup_locked = signup_lock_setting and signup_lock_setting[0]["winning_answer"] == "LOCKED"
+except Exception:
+    pass
 
 # ==========================================
 # 1. LOGIN & SIGNUP SCREEN
