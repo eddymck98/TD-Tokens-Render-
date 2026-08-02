@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import random
@@ -11,8 +12,9 @@ st.set_page_config(page_title="Touchdown Tokens", page_icon="🏈", layout="cent
 # --- SUPABASE CONFIGURATION (SESSION ISOLATED) ---
 def get_supabase_client() -> Client:
     if "supabase_client" not in st.session_state:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
+        # Check Render environment variables first, then fallback to st.secrets
+        url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
         st.session_state.supabase_client = create_client(url, key)
     return st.session_state.supabase_client
 
