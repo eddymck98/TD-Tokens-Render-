@@ -112,7 +112,7 @@ def recalculate_all_user_balances(supabase_client):
 @st.cache_data
 def get_static_nfl_team_data():
     return {
-        "🏈 Free Agent / Neutral": {"logo": "https://upload.wikimedia.org/wikipedia/en/a/a2/National_Football_League_logo.svg", "color": "#fbbf24", "stadium": "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1920&q=80"},
+        "🏈 Free Agent / Neutral": {"logo": "https://github.com/eddymck98/TD-Tokens-Render-/blob/main/ChatGPT%20Image%20Aug%202,%202026,%2009_13_43%20PM.png?raw=true", "color": "#fbbf24", "stadium": "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1920&q=80"},
         "🔴 Arizona Cardinals": {"logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png", "color": "#97233F", "stadium": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1920&q=80"},
         "🔴 Atlanta Falcons": {"logo": "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png", "color": "#A71930", "stadium": "https://images.unsplash.com/photo-1519766304817-4f37bda74a29?auto=format&fit=crop&w=1920&q=80"},
         "🟣 Baltimore Ravens": {"logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png", "color": "#241773", "stadium": "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=1920&q=80"},
@@ -211,7 +211,7 @@ DEFAULT_QUESTION_TEMPLATES = [
 ]
 
 user_team_color = "#fbbf24"
-user_team_logo = "https://upload.wikimedia.org/wikipedia/en/a/a2/National_Football_League_logo.svg"
+user_team_logo = "https://github.com/eddymck98/TD-Tokens-Render-/blob/main/ChatGPT%20Image%20Aug%202,%202026,%2009_13_43%20PM.png?raw=true"
 user_stadium_bg = "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1920&q=80"
 
 if st.session_state.user:
@@ -281,6 +281,7 @@ st.markdown(f"""
     .header-logo {{
         width: 100px;
         filter: drop-shadow(0px 10px 22px {user_team_color}cc);
+        border-radius: 50%;
     }}
     
     @keyframes teamPulse {{
@@ -641,9 +642,9 @@ with col_top_btn:
         st.cache_data.clear()
         st.rerun()
 
-st.markdown("""
+st.markdown(f"""
     <div class="nfl-header">
-        <img src="https://upload.wikimedia.org/wikipedia/en/a/a2/National_Football_League_logo.svg" class="header-logo" alt="NFL Logo" />
+        <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/ChatGPT%20Image%20Aug%202,%202026,%2009_13_43%20PM.png?raw=true" class="header-logo" alt="Touchdown Tokens Logo" />
         <h1 class="nfl-title">TOUCHDOWN TOKENS</h1>
         <div class="nfl-subtitle">Weekly NFL Predictions & Wagers</div>
     </div>
@@ -2244,7 +2245,7 @@ else:
         
         if player_stats:
             with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
-                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id]
+                all_other_names = [p["full_name"] for p in player_stats if p["id"] != user_id}
                 if all_other_names:
                     compare_name = st.selectbox("Select Rival to Compare Against:", all_other_names)
                     my_stat = next(p for p in player_stats if p["id"] == user_id)
