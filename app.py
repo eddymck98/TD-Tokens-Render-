@@ -9,12 +9,11 @@ from supabase import create_client, Client
 
 st.set_page_config(page_title="Touchdown Tokens", page_icon="🏈", layout="centered")
 
-# --- SUPABASE CONFIGURATION (SESSION ISOLATED) ---
+# --- SUPABASE CONFIGURATION (RENDER & STREAMLIT COMPATIBLE) ---
 def get_supabase_client() -> Client:
     if "supabase_client" not in st.session_state:
-        # Check Render environment variables first, then fallback to st.secrets
-        url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
+        url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL", "")
+        key = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY", "")
         st.session_state.supabase_client = create_client(url, key)
     return st.session_state.supabase_client
 
@@ -49,7 +48,7 @@ def get_cached_all_weekly_questions_meta():
     res = supabase.table("weekly_questions").select("week_number, question_number, winning_answer").neq("week_number", 999).neq("week_number", 998).neq("week_number", 997).neq("week_number", 96).execute()
     return res.data if res.data else []
 
-# --- ROBUST TOKEN RECALCULATOR (WITH UI DEBUG BANNER & ADMIN RLS BYPASS) ---
+# --- ROBUST TOKEN RECALCULATOR (WITH RENDER & STREAMLIT FALLBACK) ---
 def recalculate_all_user_balances(supabase_client):
     """
     Recalculates every user's total token balance from scratch using admin credentials 
@@ -57,8 +56,10 @@ def recalculate_all_user_balances(supabase_client):
     """
     admin_supabase = supabase_client
     try:
-        if "SUPABASE_SERVICE_KEY" in st.secrets:
-            admin_supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_SERVICE_KEY"])
+        service_key = os.environ.get("SUPABASE_SERVICE_KEY") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
+        url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL", "")
+        if service_key and url:
+            admin_supabase = create_client(url, service_key)
     except Exception:
         pass
 
@@ -570,7 +571,7 @@ st.markdown(f"""
 # --- REFRESH BUTTON AT THE TOP OF THE PAGE ---
 col_top_spacer, col_top_btn = st.columns([4, 1])
 with col_top_btn:
-    if st.button("🔄 Refresh App", width='stretch', help="Clears cache and reloads the application instantly across all pages!"):
+    if st.button("🔄 Refresh App", help="Clears cache and reloads the application instantly across all pages!"):
         st.cache_data.clear()
         st.rerun()
 
@@ -867,7 +868,7 @@ if st.session_state.user is None:
             login_email = st.text_input("Email Address", key="login_email")
             login_password = st.text_input("Password", type="password", key="login_pass")
             
-            if st.button("Log In", type="primary", width='stretch'):
+            if st.button("Log In", type="primary"):
                 try:
                     res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
                     st.session_state.user = res.user
@@ -906,7 +907,7 @@ if st.session_state.user is None:
             reg_email = st.text_input("Email Address", key="reg_email")
             reg_password = st.text_input("Password (min 6 chars)", type="password", key="reg_pass")
             
-            if st.button("Sign Up", type="primary", width='stretch'):
+            if st.button("Sign Up", type="primary"):
                 if not reg_first_name.strip():
                     st.warning("Please enter your first name.")
                 elif not reg_surname.strip():
@@ -1042,7 +1043,7 @@ else:
         st.sidebar.success("👑 Admin Mode Active")
         
     st.sidebar.divider()
-    if st.sidebar.button("Log Out", width='stretch'):
+    if st.sidebar.button("Log Out"):
         try:
             supabase.auth.sign_out()
         except Exception:
@@ -1415,7 +1416,7 @@ else:
                 )
             )
             
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No token history data available yet.")
 
@@ -1547,7 +1548,6 @@ else:
         selected_player_name = st.selectbox("Select Player Trophy Showcase", list(user_name_map.keys()), index=default_index, key="trophy_player_select", label_visibility="collapsed")
         selected_player = user_name_map[selected_player_name]
         
-        # Deep sync your own profile, but instantly load rivals from the memory cache!
         if selected_player["id"] == user_id:
             selected_badges = sync_and_get_user_badges(user_id)
         else:
@@ -1695,7 +1695,7 @@ else:
     # ------------------------------------------
     with tab_bet:
         st.header("Weekly Predictions & Wagers")
-        st.link_button("🏈 View NFL Scores, Lines & Fixtures ↗️", "https://www.espn.com/nfl/schedule", width='stretch')
+        st.link_button("🏈 View NFL Scores, Lines & Fixtures ↗️", "https://www.espn.com/nfl/schedule")
         st.caption("Check real-time odds and matchups on ESPN before locking in your picks below.")
         st.write("")
 
@@ -1896,9 +1896,9 @@ else:
 
                         col_sub1, col_sub2 = st.columns([2, 1])
                         with col_sub1:
-                            submit_bet = st.form_submit_button("Submit Weekly Bets 🚀", type="primary", width='stretch', disabled=is_locked)
+                            submit_bet = st.form_submit_button("Submit Weekly Bets 🚀", type="primary", disabled=is_locked)
                         with col_sub2:
-                            clear_bet = st.form_submit_button("Clear Bet Choices 🗑️", width='stretch', disabled=is_locked)
+                            clear_bet = st.form_submit_button("Clear Bet Choices 🗑️", disabled=is_locked)
                         
                         if clear_bet and not is_locked:
                             supabase.table("user_bets").delete().eq("user_id", user_id).eq("week_number", selected_week).execute()
@@ -1990,7 +1990,7 @@ else:
                     "Touchdown Scorer Pick": p_name,
                     "Result": status_str
                 })
-            st.dataframe(pd.DataFrame(td_history_rows), width='stretch', hide_index=True)
+            st.dataframe(pd.DataFrame(td_history_rows), use_container_width=True, hide_index=True)
         else:
             st.info("No touchdown scorer picks submitted yet.")
 
@@ -2045,7 +2045,7 @@ else:
                 
                 st.dataframe(
                     pd.DataFrame(formatted_data), 
-                    width='stretch', 
+                    use_container_width=True, 
                     hide_index=True,
                     column_config={
                         "Q#": st.column_config.TextColumn("Q#", width="small"),
@@ -2336,7 +2336,7 @@ else:
                     {"Rank": "11th", "Player": "Paul Hindle", "Final Tokens": 6},
                     {"Rank": "12th", "Player": "Liam Murphy", "Final Tokens": 0},
                 ]
-                st.dataframe(pd.DataFrame(data_2024), width='stretch', hide_index=True)
+                st.dataframe(pd.DataFrame(data_2024), use_container_width=True, hide_index=True)
                 
             else:
                 st.markdown(f"""
@@ -2360,7 +2360,7 @@ else:
                     {"Rank": "9th", "Player": "Patrick Smith", "Final Tokens": 4},
                     {"Rank": "10th", "Player": "Ethan Lewis", "Final Tokens": 3},
                 ]
-                st.dataframe(pd.DataFrame(data_2023), width='stretch', hide_index=True)
+                st.dataframe(pd.DataFrame(data_2023), use_container_width=True, hide_index=True)
 
     # ------------------------------------------
     # TAB 6: ADMIN CONTROL
@@ -2709,7 +2709,6 @@ else:
                                 st.warning("Please check off at least one player above.")
                             else:
                                 for u_id in selected_user_ids:
-                                    # Find the user's current tokens instantly from our cached list
                                     p_curr = next((p['tokens'] for p in all_profiles_bulk if p['id'] == u_id), 0)
                                     
                                     if action_type == "Add Tokens":
