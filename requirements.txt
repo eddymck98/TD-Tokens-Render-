@@ -4,3 +4,4 @@ requests
 plotly
 supabase
 gunicorn
+streamlit-cookies-controller
