@@ -3188,8 +3188,8 @@ Good luck this week! 🔥"""
                     state_str = "ON" if banner_toggle else "OFF"
                     supabase.table("weekly_questions").delete().eq("week_number", 999).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 999,
-                        "question_number", 1,
+                        "week_number": 999,
+                        "question_number": 1,
                         "question_text": selected_champion,
                         "winning_answer": state_str
                     }).execute()
