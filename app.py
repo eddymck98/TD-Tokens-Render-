@@ -546,21 +546,20 @@ st.markdown(f"""
         color: #ffffff !important;
     }}
 
-    /* --- FIX WHITE INPUT BOXES (SELECTBOXES & TEXT INPUTS) --- */
-    div[data-baseweb="select"] > div {{
+    /* --- COMPREHENSIVE SELECTBOX & INPUT BACKGROUND FIX --- */
+    .stSelectbox div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="base-input"],
+    [data-baseweb="input"],
+    [data-baseweb="tag"] {{
         background-color: rgba(15, 23, 42, 0.90) !important;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 12px !important;
     }}
-    div[data-baseweb="select"] span {{
+    div[data-baseweb="select"] span, div[data-baseweb="select"] input {{
         color: #ffffff !important;
     }}
-    div[role="listbox"] ul {{
-        background-color: #0f172a !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    }}
-    div[role="option"] {{
+    div[role="listbox"] div, div[role="option"] {{
         background-color: #0f172a !important;
         color: #ffffff !important;
     }}
