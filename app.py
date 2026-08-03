@@ -2275,22 +2275,22 @@ else:
                 st.info("Side-by-side historical comparison will unlock here automatically once at least one week has been fully graded by the Admin and other players have participated!")
 
     # ------------------------------------------
-    # TAB 5: LEAGUES (UNIFIED: MINI-LEAGUES FIRST, MAIN/CUSTOM INCLUDED, CREATE/JOIN PROMINENT IF NONE)
+    # TAB 5: LEAGUES
     # ------------------------------------------
     with tab_leagues:
         st.header("🛡️ Standings, Leagues & Commissioner Hub")
         st.caption("Switch seamlessly between your custom mini-leagues, the main league, and the True Global Leaderboard using the dropdown menu below.")
         st.write("")
 
-        # Fetch all memberships including the main league (UUID ending in 1)
+        # Fetch all memberships including the main league
         my_memberships = supabase.table("league_members").select("league_id, leagues(id, league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
         all_my_leagues = [m for m in my_memberships if m.get("leagues")]
 
-        # Separate custom mini-leagues from main league for ordering/defaulting
+        # Separate custom mini-leagues from main league
         custom_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
         main_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
 
-        # Build dropdown options: Custom mini-leagues first (so they default first), then Main league, then Global Leaderboard
+        # Build dropdown options
         league_filter_options = {}
         for m_item in custom_leagues:
             l_obj = m_item.get("leagues")
@@ -2304,7 +2304,7 @@ else:
 
         league_filter_options["🌍 True Global Leaderboard"] = "GLOBAL"
 
-        # --- NOT IN ANY CUSTOM LEAGUE VIBE / PROMPT AT THE TOP ---
+        # --- TOP CREATE/JOIN BANNER (ONLY SHOWS IF NOT IN ANY CUSTOM LEAGUE) ---
         if not custom_leagues:
             st.markdown("""
                 <div class="summary-box" style="border-left-color: #fbbf24 !important; text-align: center; padding: 24px; margin-bottom: 25px;">
@@ -2313,7 +2313,6 @@ else:
                 </div>
             """, unsafe_allow_html=True)
             
-            # Put Create & Join options prominently at the top when not in a custom league
             st.subheader("🛠️ Create or Join Custom Leagues")
             col_create, col_join = st.columns(2)
 
@@ -2384,7 +2383,7 @@ else:
                                         st.rerun()
             st.divider()
 
-        # Dropdown selector defaults to the first available option (which is a mini-league if you have one, or main league)
+        # Dropdown selector
         selected_league_filter_label = st.selectbox("Select Standings View", list(league_filter_options.keys()), key="unified_league_view_selector")
         selected_league_filter_id = league_filter_options[selected_league_filter_label]
 
@@ -2512,7 +2511,7 @@ else:
 
         st.divider()
 
-        # --- HEAD-TO-HEAD COMPARISON SECTION (ONLY SHOWN WHEN A MINI-LEAGUE OR MAIN LEAGUE IS SELECTED, NOT GLOBAL) ---
+        # --- HEAD-TO-HEAD COMPARISON SECTION ---
         if selected_league_filter_id != "GLOBAL":
             with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
                 if filtered_player_stats:
@@ -2553,7 +2552,7 @@ else:
 
             st.divider()
 
-            # --- PAST SEASON ARCHIVES (ONLY DISPLAYED WHEN A LEAGUE IS SELECTED) ---
+            # --- PAST SEASON ARCHIVES ---
             league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "")
             with st.expander(f"🏛️ Custom League Season Archives ({league_clean_name})", expanded=False):
                 archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
@@ -2674,7 +2673,6 @@ else:
 
                     if is_commissioner:
                         with st.expander(f"⚙️ Manage League: {l_name}"):
-                            # 1. League Settings (Rename & Password)
                             st.markdown("#### 📝 League Settings & Security")
                             with st.form(f"league_settings_form_{l_id}"):
                                 new_l_name = st.text_input("League Name", value=l_name, key=f"rename_l_{l_id}")
@@ -2693,8 +2691,6 @@ else:
                                         st.rerun()
 
                             st.markdown("---")
-                            
-                            # 2. Roster & Member Management
                             st.markdown("#### 👥 Roster & Member Management")
                             if members_res:
                                 member_names_map = {m.get("profiles", {}).get("full_name", "Unknown Player"): m["user_id"] for m in members_res if m.get("profiles") and m["user_id"] != user_id}
@@ -2717,8 +2713,6 @@ else:
                                     st.info("No other members in this league to remove.")
 
                             st.markdown("---")
-
-                            # 3. Extended Commissioner Powers
                             st.markdown("#### 🛠️ Commissioner Actions")
                             
                             col_comm_opt1, col_comm_opt2 = st.columns(2)
