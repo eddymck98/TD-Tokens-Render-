@@ -729,7 +729,6 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
     
     newly_earned = set(existing_unlocked)
     
-    # Check if user is a commissioner of any league or system admin
     my_administered = supabase.table("leagues").select("id").eq("created_by", target_user_id).execute().data
     if my_administered or p_data.get("is_admin"):
         newly_earned.add("⭐ League Commissioner")
@@ -1055,15 +1054,45 @@ if st.session_state.user is None:
             reg_password = st.text_input("Password (min 6 chars)", type="password", key="reg_pass")
             
             st.write("")
-            with st.expander("📖 View Touchdown Tokens Terms & Conditions"):
+            with st.expander("📖 View Touchdown Tokens Terms of Service & User Agreement"):
                 st.markdown("""
-                    **1. Recreational Nature & Virtual Currency:** Touchdown Tokens is strictly a recreational, free-to-play prediction platform. Tokens hold zero real-world cash or monetary value and cannot be exchanged for currency or goods.  
-                    **2. Eligibility & Fair Play:** Each user is permitted one active account. Multi-accounting, collusion, or abusive trash talk is strictly prohibited and will result in account termination.  
-                    **3. Submissions & Scoring:** Weekly entries lock precisely 15 minutes before the first Sunday kickoff. All administrator scoring and grading decisions are final.  
-                    **4. Limitation of Liability:** We are not liable for temporary data outages, third-party ESPN API data errors, or suspended NFL fixtures.
+                    **TOUCHDOWN TOKENS — TERMS OF SERVICE & USER AGREEMENT**
+
+                    **1. Nature of the Platform & Virtual Currency**  
+                    • *Recreational & Entertainment Purpose:* Touchdown Tokens is strictly an independent, recreational, free-to-play sports prediction and entertainment platform designed solely for amusement and community engagement among sports fans.  
+                    • *Zero Cash Value:* All points, scores, standings, and virtual tokens ("Tokens") maintain zero real-world cash or monetary value and cannot be purchased, sold, bartered, or redeemed for currency, goods, or services.  
+                    • *Not Gambling:* Because Tokens cannot be purchased or cashed out, the Platform does not constitute gambling, sports betting, or a lottery.
+
+                    **2. Eligibility & Account Registration**  
+                    • *Eligibility:* You represent and warrant that you are of legal age in your jurisdiction to enter into a binding contract.  
+                    • *Single Account Policy:* Each user is strictly permitted to maintain one (1) active account. Multi-accounting, automated scripts, or proxy use to manipulate rankings is prohibited.  
+                    • *Account Security:* You are solely responsible for maintaining the confidentiality of your credentials and all activity under your account.
+
+                    **3. Gameplay, Submissions & Deadlines**  
+                    • *Lockout Deadlines:* Weekly picks and touchdown scorer bonus selections lock strictly 15 minutes prior to the first scheduled Sunday NFL kickoff. Late submissions are not accepted.  
+                    • *Final Overrides:* You may update picks freely before lockout. Your final submitted state at the moment of lockout constitutes your official, binding entry. Previous iterations are overwritten.  
+                    • *Grading:* All scenario outcomes and standings are graded and finalized by the system administrator using official NFL statistics (powered by ESPN feeds). Administrative rulings are final.
+
+                    **4. Code of Conduct & Community Standards**  
+                    • *Acceptable Use:* Users must utilize the Platform in a respectful, lawful, and sportsmanlike manner.  
+                    • *Prohibited Conduct:* Harassment, hate speech, threats, collusion, cheating, match-fixing, or attempting to compromise database security is strictly prohibited.  
+                    • *Enforcement:* Administrators reserve the right to moderate content, deduct tokens, suspend accounts, or permanently terminate access for violations without prior notice.
+
+                    **5. Intellectual Property Rights**  
+                    • *Ownership:* All source code, design layouts, custom branding, and logos associated with Touchdown Tokens are the exclusive intellectual property of the Platform creators. Third-party team logos and sports data remain property of their respective holders.
+
+                    **6. Disclaimers & Limitation of Liability**  
+                    • *As Is Basis:* The Platform is provided on an "as is" and "as available" basis without warranties of any kind.  
+                    • *Third-Party APIs:* We rely on third-party data providers (e.g., ESPN API) and assume no liability for temporary data outages, delayed stats, or initial erroneous scoring.  
+                    • *Postponed/Canceled Games:* In the event an NFL game is officially postponed or canceled, connected questions are voided and token wagers are fully refunded.  
+                    • *Limitation of Liability:* Administrators and hosts shall not be held liable for any direct, indirect, or consequential damages arising out of your use of the Platform.
+
+                    **7. Modifications & Governing Law**  
+                    • *Amendments:* Administrators reserve the right to modify these Terms at any time. Continued use of the Platform constitutes binding acceptance of revised terms.  
+                    • *Governing Law:* These Terms are governed by and construed in accordance with the laws of the jurisdiction in which the Platform is primarily administered.
                 """)
 
-            tc_accepted = st.checkbox("I agree to the Touchdown Tokens Terms & Conditions", key="reg_tc_checkbox")
+            tc_accepted = st.checkbox("I agree to the Touchdown Tokens Terms of Service & User Agreement", key="reg_tc_checkbox")
             
             if st.button("Sign Up", type="primary"):
                 if not reg_first_name.strip():
@@ -1073,7 +1102,7 @@ if st.session_state.user is None:
                 elif not reg_email.strip():
                     st.warning("Please enter your email address.")
                 elif not tc_accepted:
-                    st.warning("You must accept the Terms & Conditions to create an account.")
+                    st.warning("You must accept the Terms of Service & User Agreement to create an account.")
                 else:
                     combined_full_name = f"{reg_first_name.strip()} {reg_surname.strip()}"
                     if contains_profanity(combined_full_name):
