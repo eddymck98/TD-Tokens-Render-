@@ -225,6 +225,7 @@ BORDER_STYLE_OPTIONS = {
 AVAILABLE_TITLES = {
     "🏈 Gridiron Contender": {"badge": None, "req": "Default baseline title for all players."},
     "👑 League Champion": {"badge": "🏆 League Champion", "req": "Be crowned the official end-of-season League Champion."},
+    "⭐ League Commissioner": {"badge": "⭐ League Commissioner", "req": "Create or administer a custom mini-league."},
     "🔮 The Oracle": {"badge": "🔮 Oracle of Delphi", "req": "Successfully call a 5+ token wager correctly 4 weeks in a row."},
     "💰 Token Tycoon": {"badge": "🚀 Token Tycoon", "req": "Reach a balance of 30+ tokens."},
     "⚡ Gridiron Prophet": {"badge": "⚡ Gridiron Prophet", "req": "Correctly predict 5+ Touchdown Scorers across the season."},
@@ -248,6 +249,7 @@ MASTER_BADGES = {
     "📉 Wall Street Bets": "Take the largest token loss in a single week",
     "📉 Down Bad": "Reach a token balance of 0 tokens",
     "🏆 League Champion": "Be crowned the official end-of-season League Champion",
+    "⭐ League Commissioner": "Create or administer a custom mini-league",
     "🔮 Oracle of Delphi": "Successfully call a 5+ token wager correctly 4 weeks in a row",
     "🔥 Untouchable Run": "Gain 20+ net tokens in a single weekly slate",
     "⚡ Gridiron Prophet": "Correctly predict 5+ Touchdown Scorers across the season",
@@ -429,65 +431,60 @@ st.markdown(f"""
         opacity: 0.55;
     }}
 
+    /* --- REDESIGNED COMPACT LEADERBOARD ROW --- */
     .leaderboard-row {{
-        background: rgba(15, 23, 42, 0.82);
+        background: rgba(15, 23, 42, 0.85);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 10px 14px;
-        margin-bottom: 8px;
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 10px;
+        padding: 6px 12px;
+        margin-bottom: 6px;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }}
     .leaderboard-row:hover {{
-        transform: translateY(-2px);
+        transform: translateY(-1px);
         border-color: rgba(255, 255, 255, 0.25);
-        box-shadow: 0 8px 25px {user_team_color}44;
+        box-shadow: 0 4px 15px {user_team_color}33;
     }}
 
     .podium-rank-1 {{
         border: 1px solid rgba(251, 191, 36, 0.5) !important;
-        border-top: 3px solid #fbbf24 !important;
-        background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
-        box-shadow: 0 8px 25px rgba(251, 191, 36, 0.25) !important;
+        border-left: 4px solid #fbbf24 !important;
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
     }}
     .podium-rank-2 {{
         border: 1px solid rgba(148, 163, 184, 0.5) !important;
-        border-top: 3px solid #94a3b8 !important;
-        background: linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
-        box-shadow: 0 8px 20px rgba(148, 163, 184, 0.2) !important;
+        border-left: 4px solid #94a3b8 !important;
+        background: linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
     }}
     .podium-rank-3 {{
         border: 1px solid rgba(180, 83, 9, 0.5) !important;
-        border-top: 3px solid #b45309 !important;
-        background: linear-gradient(135deg, rgba(180, 83, 9, 0.15) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
-        box-shadow: 0 8px 20px rgba(180, 83, 9, 0.2) !important;
+        border-left: 4px solid #b45309 !important;
+        background: linear-gradient(135deg, rgba(180, 83, 9, 0.12) 0%, rgba(15, 23, 42, 0.90) 100%) !important;
     }}
 
     .stat-pill-container {{
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 4px;
+        gap: 4px;
+        margin-top: 2px;
     }}
     .stat-pill {{
         background: rgba(30, 41, 59, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 16px;
-        padding: 1px 8px;
-        font-size: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 0px 6px;
+        font-size: 9px;
         font-weight: 600;
-        color: #e2e8f0;
+        color: #cbd5e1;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        letter-spacing: 0.3px;
-    }}
-    .stat-pill-accent {{
-        background: linear-gradient(135deg, {user_team_color}25 0%, rgba(30, 41, 59, 0.85) 100%);
-        border: 1px solid {user_team_color}66;
-        color: {user_team_color};
+        gap: 3px;
     }}
 
     .vs-card {{
@@ -732,6 +729,11 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
     
     newly_earned = set(existing_unlocked)
     
+    # Check if user is a commissioner of any league or system admin
+    my_administered = supabase.table("leagues").select("id").eq("created_by", target_user_id).execute().data
+    if my_administered or p_data.get("is_admin"):
+        newly_earned.add("⭐ League Commissioner")
+
     if toks >= 30:
         newly_earned.add("🚀 Token Tycoon")
     if any(b['wager_amount'] >= 10 for b in u_bets):
@@ -2336,7 +2338,7 @@ else:
                 st.info("Side-by-side historical comparison will unlock here automatically once at least one week has be fully graded by the Admin and you share a league with other active participants!")
 
     # ------------------------------------------
-    # TAB 5: LEAGUES (UPDATED WITH EXCLUSIVE LEAGUE NEMESIS & DEFAULT VIEW)
+    # TAB 5: LEAGUES (COMPACT LEADERBOARD REDESIGN)
     # ------------------------------------------
     with tab_leagues:
         st.header("🏆 League Standings & Mini-Leagues")
@@ -2364,7 +2366,6 @@ else:
                 league_filter_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
 
         if league_filter_options:
-            # Determine default index based on user's saved default_league_view preference
             user_saved_default = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
             default_label = next((k for k, v in league_filter_options.items() if v == user_saved_default), list(league_filter_options.keys())[0])
             default_dropdown_idx = list(league_filter_options.keys()).index(default_label) if default_label in league_filter_options else 0
@@ -2379,78 +2380,66 @@ else:
             clean_display_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "").replace(" (Mini-League)", "")
             st.subheader(f"{icon_prefix} {clean_display_name} Standings")
             
-            # Determine allowed peer user IDs for this specific view (for Nemesis calculation and leaderboard filtering)
             if is_global_view:
-                allowed_peer_ids = None # Global view allows all users
+                allowed_peer_ids = None 
             else:
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
                 allowed_peer_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
 
-            # Pass allowed_peer_ids so Nemesis is exclusively calculated from members of this selected league!
             filtered_player_stats = get_cached_leaderboard_stats(allowed_peer_ids=allowed_peer_ids)
 
             if not filtered_player_stats:
                 st.info("No players found in this standings view yet.")
             else:
-                # Helper rendering function for a single player leaderboard row
+                # --- REDESIGNED COMPACT PLAYER ROW RENDERER ---
                 def render_player_row(p, current_rank_val):
                     av = p.get("avatar_emoji") or "🏈"
                     p_border = p.get("avatar_border") or "solid"
                     p_bg_col = p.get("avatar_color") or "#1e3a8a"
                     t_info = NFL_TEAM_DATA.get(p.get("favorite_team"), NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
-                    team_name = p.get("favorite_team") or "🏈 Free Agent / Neutral"
-                    fav_pl = p.get("favorite_player", "")
-                    nem_name_card = p.get("nemesis_name", "None")
-                    nem_score_card = p.get("nemesis_score", 0)
                     win_rate_val = p['win_rate']
                     streak_val = p['streak']
                     p_title = get_earned_title(p["id"])
                     
                     showcased = p.get("featured_badges") or []
                     if not showcased or not isinstance(showcased, list):
-                        showcased = p.get("unlocked_badges", [])[:3] 
-                    
-                    badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:10px;">No Badges</span>'
+                        showcased = p.get("unlocked_badges", [])[:2]
+                    badges_str = " • ".join(showcased) if showcased else "No Badges"
                     
                     podium_class = "leaderboard-row"
-                    if current_rank_val == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
-                    elif current_rank_val == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
-                    elif current_rank_val == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
+                    if current_rank_val == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 1"
+                    elif current_rank_val == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 2"
+                    elif current_rank_val == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 3"
                     else: rank_display = f"#{current_rank_val}"
                     
                     st.markdown(f"""
                         <div class="{podium_class}">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-family: 'Bebas Neue'; font-size: 20px; color: #fbbf24; width: 32px;">{rank_display}</span>
-                                    <div style="border: 2px {p_border} {t_info['color']}; border-radius: 6px; padding: 2px 4px; background: {p_bg_col};">
-                                        <span style="font-size: 16px;">{av}</span>
-                                    </div>
-                                    <img src="{t_info['logo']}" style="width: 22px; height: 22px;" />
-                                    <div>
-                                        <b style="font-size: 14px; color: #ffffff;">{p['full_name']}</b> <span style="font-size:10px; color:#38bdf8; font-weight:600; margin-left:3px;">[{p_title}]</span> {f'<span style="font-size:10px; color:#38bdf8; margin-left:3px;">⭐ {fav_pl}</span>' if fav_pl else ''}
-                                        <div style="font-size: 10px; color: #94a3b8;">{team_name} • ⚔️ Nemesis: <span style="color:#f87171;">{nem_name_card}</span> ({nem_score_card})</div>
+                            <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                                <span style="font-family: 'Bebas Neue'; font-size: 18px; color: #fbbf24; min-width: 26px;">{rank_display}</span>
+                                <div style="border: 2px {p_border} {t_info['color']}; border-radius: 6px; padding: 1px 5px; background: {p_bg_col}; flex-shrink: 0;">
+                                    <span style="font-size: 15px;">{av}</span>
+                                </div>
+                                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    <b style="font-size: 13px; color: #ffffff;">{p['full_name']}</b> <span style="font-size: 9px; color: #38bdf8;">[{p_title}]</span>
+                                    <div class="stat-pill-container">
+                                        <span class="stat-pill">🪙 <b>{p['tokens']}</b></span>
+                                        <span class="stat-pill">🎯 {win_rate_val}%</span>
+                                        <span class="stat-pill">🏈 {p['correct_tds']} TDs</span>
+                                        <span class="stat-pill">🔥 {streak_val}</span>
+                                        <span class="stat-pill" style="color: #94a3b8; max-width: 130px; overflow: hidden; text-overflow: ellipsis;">🏆 {badges_str}</span>
                                     </div>
                                 </div>
-                                <div style="text-align: right;"><span style="font-family: 'Bebas Neue'; font-size: 22px; color: #38bdf8;">{p['tokens']} 🪙</span></div>
                             </div>
-                            <div class="stat-pill-container">
-                                <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win</span>
-                                <span class="stat-pill">🏈 {p['correct_tds']} TDs</span>
-                                <span class="stat-pill">🔥 Streak: {streak_val}</span>
-                            </div>
-                            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 2px; margin-top: 4px; display: flex; align-items: center;">
-                                <span style="font-size: 9px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-right: 4px;">Badges:</span> {badges_html}
+                            <div style="text-align: right; flex-shrink: 0; margin-left: 8px;">
+                                <span style="font-family: 'Bebas Neue'; font-size: 20px; color: #38bdf8;">{p['tokens']} 🪙</span>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
 
                 if is_global_view:
-                    # GLOBAL VIEW LOGIC: Top 10 + Logged-in user's pinned card at bottom if outside top 10
                     current_rank = 1
                     prev_score, prev_tds = None, None
                     
-                    # Compute ranks for all filtered players first
                     all_ranked_players = []
                     for idx, p in enumerate(filtered_player_stats):
                         score, tds = p["tokens"], p["correct_tds"]
@@ -2459,18 +2448,15 @@ else:
                         prev_score, prev_tds = score, tds
                         all_ranked_players.append((p, display_rank))
 
-                    # Top 10
                     top_10 = all_ranked_players[:10]
                     for p_obj, r_num in top_10:
                         render_player_row(p_obj, r_num)
 
-                    # Check if logged-in user is outside Top 10
                     logged_in_entry = next((item for item in all_ranked_players if item[0]["id"] == user_id), None)
                     if logged_in_entry and logged_in_entry[1] > 10:
-                        st.markdown("<div style='text-align:center; color:#94a3b8; margin: 12px 0; font-size: 14px;'>• • • and your standing • • •</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='text-align:center; color:#94a3b8; margin: 8px 0; font-size: 12px;'>• • • your standing • • •</div>", unsafe_allow_html=True)
                         render_player_row(logged_in_entry[0], logged_in_entry[1])
                 else:
-                    # MINI LEAGUE VIEW LOGIC: Show all entrants
                     current_rank = 1
                     prev_score, prev_tds = None, None
                     for idx, p in enumerate(filtered_player_stats):
@@ -2557,8 +2543,8 @@ else:
                                 r_icon = "🥇" if idx == 0 else ("🥈" if idx == 1 else ("🥉" if idx == 2 else f"#{idx+1}"))
                                 formatted_archive_rows.append({
                                     "Rank": r_icon,
-                                    "Player": row.get("full_name", "Unknown"),
-                                    "Final Tokens": row.get("tokens", 0),
+                                    "Player": row.get("full_name", row.get("Player", "Unknown")),
+                                    "Final Tokens": row.get("tokens", row.get("Final Tokens", 0)),
                                     "Favorite Team": row.get("favorite_team", "N/A")
                                 })
                             
@@ -2835,10 +2821,8 @@ else:
             st.caption("Manage your mini-leagues, update settings, adjust member token balances, regenerate invite codes, and handle member rosters.")
             st.write("")
 
-            # Filter administered leagues
             admin_leagues_list = []
             if profile.get("is_admin"):
-                # System admin can manage all custom mini-leagues
                 all_custom_leagues = supabase.table("leagues").select("id, league_name, invite_code, league_password, created_by").neq("id", "00000000-0000-0000-0000-000000000001").execute().data
                 admin_leagues_list = all_custom_leagues if all_custom_leagues else []
             else:
@@ -2856,11 +2840,9 @@ else:
 
                 st.write("")
 
-                # Fetch members for this specific league
                 members_res = supabase.table("league_members").select("user_id, profiles(full_name, tokens, favorite_team)").eq("league_id", l_id).execute().data
                 member_count = len(members_res) if members_res else 0
 
-                # Top League Summary Metrics
                 col_m1, col_m2, col_m3 = st.columns(3)
                 with col_m1:
                     st.metric("League Name", l_name)
@@ -2871,7 +2853,6 @@ else:
 
                 st.write("")
 
-                # Redesigned Commissioner Action Expander Cards / Sections
                 with st.expander("📝 1. League Settings & Security", expanded=True):
                     with st.form(f"redesigned_league_settings_{l_id}"):
                         new_l_name = st.text_input("League Name", value=l_name)
@@ -2954,17 +2935,14 @@ else:
                                 st.warning("Please check the confirmation box to proceed.")
                             else:
                                 try:
-                                    # Fetch all profiles
                                     all_profiles_snapshot = get_cached_profiles()
                                     league_member_ids = {m["user_id"] for m in members_res} if members_res else set()
                                     
-                                    # Filter and sort members by tokens descending
                                     league_players = [p for p in all_profiles_snapshot if p["id"] in league_member_ids]
                                     league_players_sorted = sorted(league_players, key=lambda x: (-x["tokens"], x["full_name"]))
                                     
                                     if league_players_sorted:
                                         champ_user_id = league_players_sorted[0]["id"]
-                                        # Grant League Champion badge/title logic update for winner
                                         champ_prof = supabase.table("profiles").select("unlocked_badges").eq("id", champ_user_id).single().execute().data
                                         if champ_prof:
                                             unlocked_b = champ_prof.get("unlocked_badges", [])
@@ -2973,7 +2951,6 @@ else:
                                                 unlocked_b.append("🏆 League Champion")
                                                 supabase.table("profiles").update({"unlocked_badges": unlocked_b, "selected_title": "👑 League Champion"}).eq("id", champ_user_id).execute()
 
-                                    # Save into archived_seasons
                                     supabase.table("archived_seasons").insert({
                                         "league_id": l_id,
                                         "season_label": season_label_input.strip(),
@@ -3477,28 +3454,23 @@ Good luck this week! 🔥"""
                     try:
                         all_profiles = get_cached_profiles()
                         
-                        # 1. Fetch all mini-leagues (excluding global)
                         all_leagues_res = supabase.table("leagues").select("id, league_name").neq("id", "00000000-0000-0000-0000-000000000001").execute().data
                         
                         if all_leagues_res:
                             for l in all_leagues_res:
                                 l_id = l["id"]
-                                # Get members for this mini-league
                                 members_res = supabase.table("league_members").select("user_id").eq("league_id", l_id).execute().data
                                 member_ids = {m["user_id"] for m in members_res} if members_res else set()
                                 
-                                # Filter global player stats for this mini-league and sort descending by tokens
                                 league_players = [p for p in all_profiles if p["id"] in member_ids]
                                 league_players_sorted = sorted(league_players, key=lambda x: (-x["tokens"], x["full_name"]))
                                 
-                                # Save snapshot into archived_seasons table
                                 supabase.table("archived_seasons").insert({
                                     "league_id": l_id,
                                     "season_label": season_label,
                                     "standings_json": league_players_sorted
                                 }).execute()
 
-                        # 2. Reset profiles to 10 tokens
                         for p in all_profiles:
                             supabase.table("profiles").update({"tokens": 10}).eq("id", p["id"]).execute()
                             
