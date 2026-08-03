@@ -3289,7 +3289,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 998,
+                        "week_number": 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
@@ -3298,7 +3298,7 @@ Good luck this week! 🔥"""
                     signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 997).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 997,
+                        "week_number": 997,
                         "question_number": 1,
                         "question_text": "SIGNUP ACCESS LOCK",
                         "winning_answer": signup_status
