@@ -270,7 +270,6 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Teko:wght@500;700&display=swap');
 
-    /* Pull Streamlit's native top padding up */
     .stMainBlockContainer, div[data-testid="stMainBlockContainer"] {{
         padding-top: 1rem !important;
     }}
@@ -2327,14 +2326,8 @@ else:
             if not filtered_player_stats:
                 st.info("No players found in this standings view yet.")
             else:
-                current_rank = 1
-                prev_score, prev_tds = None, None
-                for idx, p in enumerate(filtered_player_stats):
-                    score, tds = p["tokens"], p["correct_tds"]
-                    if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
-                    else: current_rank, display_rank = idx + 1, idx + 1
-                    prev_score, prev_tds = score, tds
-                    
+                # Helper rendering function for a single player leaderboard row
+                def render_player_row(p, current_rank_val):
                     av = p.get("avatar_emoji") or "🏈"
                     p_border = p.get("avatar_border") or "solid"
                     p_bg_col = p.get("avatar_color") or "#1e3a8a"
@@ -2354,10 +2347,10 @@ else:
                     badges_html = "".join([f'<span class="badge-pill">{b}</span>' for b in showcased]) if showcased else '<span style="color:#64748b; font-size:10px;">No Badges</span>'
                     
                     podium_class = "leaderboard-row"
-                    if display_rank == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
-                    elif display_rank == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
-                    elif display_rank == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
-                    else: rank_display = f"#{display_rank}"
+                    if current_rank_val == 1: podium_class, rank_display = podium_class + " podium-rank-1", "🥇 #1"
+                    elif current_rank_val == 2: podium_class, rank_display = podium_class + " podium-rank-2", "🥈 #2"
+                    elif current_rank_val == 3: podium_class, rank_display = podium_class + " podium-rank-3", "🥉 #3"
+                    else: rank_display = f"#{current_rank_val}"
                     
                     st.markdown(f"""
                         <div class="{podium_class}">
@@ -2377,7 +2370,7 @@ else:
                             </div>
                             <div class="stat-pill-container">
                                 <span class="stat-pill stat-pill-accent">🎯 {win_rate_val}% Win</span>
-                                <span class="stat-pill">🏈 {tds} TDs</span>
+                                <span class="stat-pill">🏈 {p['correct_tds']} TDs</span>
                                 <span class="stat-pill">🔥 Streak: {streak_val}</span>
                             </div>
                             <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 2px; margin-top: 4px; display: flex; align-items: center;">
@@ -2385,6 +2378,42 @@ else:
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
+
+                if is_global_view:
+                    # GLOBAL VIEW LOGIC: Top 10 + Logged-in user's pinned card at bottom if outside top 10
+                    current_rank = 1
+                    prev_score, prev_tds = None, None
+                    
+                    # Compute ranks for all filtered players first
+                    all_ranked_players = []
+                    for idx, p in enumerate(filtered_player_stats):
+                        score, tds = p["tokens"], p["correct_tds"]
+                        if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
+                        else: current_rank, display_rank = idx + 1, idx + 1
+                        prev_score, prev_tds = score, tds
+                        all_ranked_players.append((p, display_rank))
+
+                    # Top 10
+                    top_10 = all_ranked_players[:10]
+                    for p_obj, r_num in top_10:
+                        render_player_row(p_obj, r_num)
+
+                    # Check if logged-in user is outside Top 10
+                    logged_in_entry = next((item for item in all_ranked_players if item[0]["id"] == user_id), None)
+                    if logged_in_entry and logged_in_entry[1] > 10:
+                        st.markdown("<div style='text-align:center; color:#94a3b8; margin: 12px 0; font-size: 14px;'>• • • and your standing • • •</div>", unsafe_allow_html=True)
+                        render_player_row(logged_in_entry[0], logged_in_entry[1])
+                else:
+                    # MINI LEAGUE VIEW LOGIC: Show all entrants
+                    current_rank = 1
+                    prev_score, prev_tds = None, None
+                    for idx, p in enumerate(filtered_player_stats):
+                        score, tds = p["tokens"], p["correct_tds"]
+                        if idx > 0 and score == prev_score and tds == prev_tds: display_rank = current_rank
+                        else: current_rank, display_rank = idx + 1, idx + 1
+                        prev_score, prev_tds = score, tds
+                        
+                        render_player_row(p, display_rank)
 
             st.divider()
 
