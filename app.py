@@ -557,28 +557,51 @@ st.markdown(f"""
         margin-bottom: 4px;
     }}
 
-    button[data-baseweb="tab"] {{
-        background-color: rgba(15, 23, 42, 0.85) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 12px !important;
-        padding: 10px 22px !important;
-        margin-right: 8px !important;
-        transition: all 0.3s ease !important;
+    /* --- MODERNIZED TAB NAVIGATION BAR --- */
+    div[data-testid="stHorizontalBlock"] div[data-baseweb="tab-list"],
+    div[data-baseweb="tab-list"] {{
+        gap: 6px;
+        background-color: rgba(11, 15, 25, 0.6);
+        padding: 6px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        margin-bottom: 20px;
+        overflow-x: auto;
     }}
+
+    button[data-baseweb="tab"] {{
+        background: rgba(15, 23, 42, 0.75) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 10px !important;
+        padding: 8px 14px !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }}
+    
+    button[data-baseweb="tab"]:hover {{
+        background: rgba(30, 41, 59, 0.9) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        transform: translateY(-1px);
+    }}
+
     button[data-baseweb="tab"] * {{
         font-family: 'Teko', sans-serif !important;
-        font-size: 21px !important;
-        letter-spacing: 1.5px !important;
+        font-size: 19px !important;
+        letter-spacing: 1.2px !important;
         color: #94a3b8 !important;
     }}
+
     button[aria-selected="true"] {{
         background: linear-gradient(135deg, rgba(30, 58, 138, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-top: 3px solid #fbbf24 !important;
-        box-shadow: 0 8px 28px {user_team_color}66 !important;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        border-top: 3px solid {user_team_color} !important;
+        box-shadow: 0 6px 20px {user_team_color}44 !important;
     }}
+
     button[aria-selected="true"] * {{
         color: #ffffff !important;
+        font-weight: 700 !important;
     }}
 
     .stSelectbox div[data-baseweb="select"] > div,
@@ -1204,22 +1227,22 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    # Dynamic tabs configuration based on admin/commissioner privileges
+    # Dynamic tabs configuration based on admin/commissioner privileges with enhanced icons
     if profile.get("is_admin") and is_any_league_admin:
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin, tab_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⭐ League Admin", "⚙️ Admin Control"]
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish", "⚙️ Admin"]
         )
     elif profile.get("is_admin"):
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⚙️ Admin Control"]
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⚙️ Admin"]
         )
     elif is_any_league_admin:
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⭐ League Admin"]
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish"]
         )
     else:
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues"]
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues"]
         )
 
     # ------------------------------------------
