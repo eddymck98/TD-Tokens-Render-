@@ -2275,36 +2275,45 @@ else:
                 st.info("Side-by-side historical comparison will unlock here automatically once at least one week has been fully graded by the Admin and other players have participated!")
 
     # ------------------------------------------
-    # TAB 5: LEAGUES (COMBINED DROPDOWN: MINI-LEAGUES DEFAULT FIRST + CREATE/JOIN AT TOP IF NONE)
+    # TAB 5: LEAGUES (UNIFIED: MINI-LEAGUES FIRST, MAIN/CUSTOM INCLUDED, CREATE/JOIN PROMINENT IF NONE)
     # ------------------------------------------
     with tab_leagues:
         st.header("🛡️ Standings, Leagues & Commissioner Hub")
-        st.caption("Switch seamlessly between your custom mini-leagues and the True Global Leaderboard using the dropdown menu below.")
+        st.caption("Switch seamlessly between your custom mini-leagues, the main league, and the True Global Leaderboard using the dropdown menu below.")
         st.write("")
 
-        # Fetch custom memberships first
+        # Fetch all memberships including the main league (UUID ending in 1)
         my_memberships = supabase.table("league_members").select("league_id, leagues(id, league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
-        custom_memberships = [m for m in my_memberships if m.get("leagues") and m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
+        all_my_leagues = [m for m in my_memberships if m.get("leagues")]
 
-        # Build options dictionary: Mini-leagues come FIRST (so the default selection is a mini-league if available), followed by Global Leaderboard at the bottom.
+        # Separate custom mini-leagues from main league for ordering/defaulting
+        custom_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
+        main_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
+
+        # Build dropdown options: Custom mini-leagues first (so they default first), then Main league, then Global Leaderboard
         league_filter_options = {}
-        for m_item in custom_memberships:
+        for m_item in custom_leagues:
             l_obj = m_item.get("leagues")
             if l_obj:
                 league_filter_options[f"🛡️ {l_obj['league_name']}"] = l_obj["id"]
 
+        if main_league_item:
+            l_obj = main_league_item.get("leagues")
+            if l_obj:
+                league_filter_options[f"🏆 {l_obj['league_name']}"] = l_obj["id"]
+
         league_filter_options["🌍 True Global Leaderboard"] = "GLOBAL"
 
-        # --- NOT IN A LEAGUE VIBE / PROMPT AT THE TOP ---
-        if not custom_memberships:
+        # --- NOT IN ANY CUSTOM LEAGUE VIBE / PROMPT AT THE TOP ---
+        if not custom_leagues:
             st.markdown("""
                 <div class="summary-box" style="border-left-color: #fbbf24 !important; text-align: center; padding: 24px; margin-bottom: 25px;">
                     <h3 style="margin-top:0; color:#fff;">You aren't part of any custom mini-leagues yet!</h3>
-                    <p style="color:#cbd5e1; font-size:16px;">Create your own mini-league or join an existing one using an invite code below to get started with group standings and rivalries.</p>
+                    <p style="color:#cbd5e1; font-size:16px;">Create your own mini-league or join an existing one using an invite code below to unlock head-to-head rivalries and group standings.</p>
                 </div>
             """, unsafe_allow_html=True)
             
-            # Put Create & Join options prominently at the top when not in a league
+            # Put Create & Join options prominently at the top when not in a custom league
             st.subheader("🛠️ Create or Join Custom Leagues")
             col_create, col_join = st.columns(2)
 
@@ -2375,7 +2384,7 @@ else:
                                         st.rerun()
             st.divider()
 
-        # Dropdown selector defaulting to the first mini-league
+        # Dropdown selector defaults to the first available option (which is a mini-league if you have one, or main league)
         selected_league_filter_label = st.selectbox("Select Standings View", list(league_filter_options.keys()), key="unified_league_view_selector")
         selected_league_filter_id = league_filter_options[selected_league_filter_label]
 
@@ -2387,7 +2396,10 @@ else:
             st.caption("Official global rankings across all players, calculated strictly from true match predictions and touchdown bonuses (excluding commissioner adjustments).")
             filtered_player_stats = get_cached_leaderboard_stats()
         else:
-            st.subheader(f"🛡️ {selected_league_filter_label.replace('🛡️ ', '')} Standings")
+            is_main_league = (selected_league_filter_id == "00000000-0000-0000-0000-000000000001")
+            icon_prefix = "🏆" if is_main_league else "🛡️"
+            st.subheader(f"{icon_prefix} {selected_league_filter_label.replace('🛡️ ', '').replace('🏆 ', '')} Standings")
+            
             custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
             allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
             
@@ -2500,7 +2512,7 @@ else:
 
         st.divider()
 
-        # --- HEAD-TO-HEAD COMPARISON SECTION (ONLY SHOWN WHEN A MINI-LEAGUE IS SELECTED, NOT GLOBAL) ---
+        # --- HEAD-TO-HEAD COMPARISON SECTION (ONLY SHOWN WHEN A MINI-LEAGUE OR MAIN LEAGUE IS SELECTED, NOT GLOBAL) ---
         if selected_league_filter_id != "GLOBAL":
             with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
                 if filtered_player_stats:
@@ -2541,8 +2553,8 @@ else:
 
             st.divider()
 
-            # --- PAST SEASON ARCHIVES (ONLY DISPLAYED WHEN A CUSTOM MINI-LEAGUE IS SELECTED) ---
-            league_clean_name = selected_league_filter_label.replace("🛡️ ", "")
+            # --- PAST SEASON ARCHIVES (ONLY DISPLAYED WHEN A LEAGUE IS SELECTED) ---
+            league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "")
             with st.expander(f"🏛️ Custom League Season Archives ({league_clean_name})", expanded=False):
                 archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
 
@@ -2562,82 +2574,82 @@ else:
 
             st.divider()
 
-        # --- CREATE OR JOIN CUSTOM LEAGUES & COMMISSIONER MANAGEMENT (SHOWN AT BOTTOM IF ALREADY IN LEAGUES, OR PROMINENTLY AT TOP IF NOT) ---
-        if custom_memberships:
-            st.subheader("🛠️ Create or Join Custom Leagues & Commissioner Management")
-            
-            col_create, col_join = st.columns(2)
+        # --- CREATE OR JOIN CUSTOM LEAGUES & COMMISSIONER MANAGEMENT ---
+        st.subheader("🛠️ Create or Join Custom Leagues & Commissioner Management")
+        
+        col_create, col_join = st.columns(2)
 
-            with col_create:
-                st.markdown("#### ➕ Create a League")
-                with st.form("create_league_form"):
-                    new_league_name = st.text_input("League Name", placeholder="e.g., Office Chumps")
-                    new_league_pwd = st.text_input("League Password / Passcode (Optional)", type="password", placeholder="Secure access code")
-                    submit_create_league = st.form_submit_button("Create League 🚀", type="primary")
+        with col_create:
+            st.markdown("#### ➕ Create a League")
+            with st.form("create_league_form"):
+                new_league_name = st.text_input("League Name", placeholder="e.g., Office Chumps")
+                new_league_pwd = st.text_input("League Password / Passcode (Optional)", type="password", placeholder="Secure access code")
+                submit_create_league = st.form_submit_button("Create League 🚀", type="primary")
 
-                    if submit_create_league:
-                        if not new_league_name.strip():
-                            st.error("Please enter a valid league name.")
-                        else:
-                            import random as r_mod, string as s_mod
-                            invite_code = ''.join(r_mod.choices(s_mod.ascii_uppercase + s_mod.digits, k=6))
-                            try:
-                                res_l = supabase.table("leagues").insert({
-                                    "league_name": new_league_name.strip(),
-                                    "invite_code": invite_code,
-                                    "created_by": user_id,
-                                    "league_password": new_league_pwd.strip() if new_league_pwd else ""
+                if submit_create_league:
+                    if not new_league_name.strip():
+                        st.error("Please enter a valid league name.")
+                    else:
+                        import random as r_mod, string as s_mod
+                        invite_code = ''.join(r_mod.choices(s_mod.ascii_uppercase + s_mod.digits, k=6))
+                        try:
+                            res_l = supabase.table("leagues").insert({
+                                "league_name": new_league_name.strip(),
+                                "invite_code": invite_code,
+                                "created_by": user_id,
+                                "league_password": new_league_pwd.strip() if new_league_pwd else ""
+                            }).execute()
+                            
+                            if res_l.data:
+                                new_league_id = res_l.data[0]["id"]
+                                supabase.table("league_members").insert({
+                                    "league_id": new_league_id,
+                                    "user_id": user_id
                                 }).execute()
-                                
-                                if res_l.data:
-                                    new_league_id = res_l.data[0]["id"]
+                                st.success(f"League '{new_league_name}' created successfully! Invite Code: **{invite_code}**")
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error creating league: {e}")
+
+        with col_join:
+            st.markdown("#### 🔗 Join a League")
+            with st.form("join_league_form"):
+                code_input = st.text_input("Enter 6-Character Invite Code", placeholder="e.g., A7X9P2")
+                pwd_input = st.text_input("League Password (if required)", type="password", placeholder="Enter password")
+                submit_join_league = st.form_submit_button("Join League 🤝", type="primary")
+
+                if submit_join_league:
+                    clean_code = code_input.strip().upper()
+                    if not clean_code:
+                        st.warning("Please enter an invite code.")
+                    else:
+                        found_league = supabase.table("leagues").select("id, league_name, league_password").eq("invite_code", clean_code).execute().data
+                        if not found_league:
+                            st.error("Invalid invite code. Please check with your league commissioner.")
+                        else:
+                            target_league = found_league[0]
+                            target_league_id = target_league["id"]
+                            stored_pwd = target_league.get("league_password", "")
+                            
+                            if stored_pwd and stored_pwd != pwd_input.strip():
+                                st.error("Incorrect league password. Please check with the commissioner.")
+                            else:
+                                existing_member = supabase.table("league_members").select("id").eq("league_id", target_league_id).eq("user_id", user_id).execute().data
+                                if existing_member:
+                                    st.warning(f"You are already a member of '{target_league['league_name']}'!")
+                                else:
                                     supabase.table("league_members").insert({
-                                        "league_id": new_league_id,
+                                        "league_id": target_league_id,
                                         "user_id": user_id
                                     }).execute()
-                                    st.success(f"League '{new_league_name}' created successfully! Invite Code: **{invite_code}**")
+                                    st.success(f"Successfully joined '{target_league['league_name']}'!")
                                     st.rerun()
-                            except Exception as e:
-                                st.error(f"Error creating league: {e}")
 
-            with col_join:
-                st.markdown("#### 🔗 Join a League")
-                with st.form("join_league_form"):
-                    code_input = st.text_input("Enter 6-Character Invite Code", placeholder="e.g., A7X9P2")
-                    pwd_input = st.text_input("League Password (if required)", type="password", placeholder="Enter password")
-                    submit_join_league = st.form_submit_button("Join League 🤝", type="primary")
-
-                    if submit_join_league:
-                        clean_code = code_input.strip().upper()
-                        if not clean_code:
-                            st.warning("Please enter an invite code.")
-                        else:
-                            found_league = supabase.table("leagues").select("id, league_name, league_password").eq("invite_code", clean_code).execute().data
-                            if not found_league:
-                                st.error("Invalid invite code. Please check with your league commissioner.")
-                            else:
-                                target_league = found_league[0]
-                                target_league_id = target_league["id"]
-                                stored_pwd = target_league.get("league_password", "")
-                                
-                                if stored_pwd and stored_pwd != pwd_input.strip():
-                                    st.error("Incorrect league password. Please check with the commissioner.")
-                                else:
-                                    existing_member = supabase.table("league_members").select("id").eq("league_id", target_league_id).eq("user_id", user_id).execute().data
-                                    if existing_member:
-                                        st.warning(f"You are already a member of '{target_league['league_name']}'!")
-                                    else:
-                                        supabase.table("league_members").insert({
-                                            "league_id": target_league_id,
-                                            "user_id": user_id
-                                        }).execute()
-                                        st.success(f"Successfully joined '{target_league['league_name']}'!")
-                                        st.rerun()
-
-            st.write("")
-            st.markdown("#### 📋 Your Active Leagues & Commissioner Controls")
-            
-            for mem in custom_memberships:
+        st.write("")
+        st.markdown("#### 📋 Your Active Leagues & Commissioner Controls")
+        
+        if custom_leagues:
+            for mem in custom_leagues:
                 league_info = mem.get("leagues")
                 if league_info:
                     l_id = league_info["id"]
@@ -3277,7 +3289,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 998,
+                        "week_number", 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
@@ -3286,7 +3298,7 @@ Good luck this week! 🔥"""
                     signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 997).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 997,
+                        "week_number", 997,
                         "question_number": 1,
                         "question_text": "SIGNUP ACCESS LOCK",
                         "winning_answer": signup_status
