@@ -270,6 +270,14 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Teko:wght@500;700&display=swap');
 
+    /* Pull Streamlit's native top padding up */
+    .stMainBlockContainer, div[data-testid="stMainBlockContainer"] {{
+        padding-top: 1rem !important;
+    }}
+    header[data-testid="stHeader"] {{
+        background: transparent !important;
+    }}
+
     .stApp, div[data-testid="stAppViewContainer"] {{
         background: 
             radial-gradient(circle at 50% 20%, rgba(15, 23, 42, 0.90), rgba(7, 13, 25, 0.99)),
@@ -295,18 +303,18 @@ st.markdown(f"""
         color: #f8fafc !important;
     }}
 
-    .nfl-header {{ text-align: center; padding: 12px 0 8px 0; }}
+    .nfl-header {{ text-align: center; padding: 0px 0 4px 0; margin-top: -25px; }}
     .nfl-subtitle {{
         font-family: 'Teko', sans-serif;
-        font-size: 26px;
+        font-size: 24px;
         letter-spacing: 5px;
         color: #93c5fd;
         text-transform: uppercase;
-        margin-top: 4px;
+        margin-top: -4px;
         text-shadow: 0 2px 10px rgba(0,0,0,0.8);
     }}
     .header-logo {{
-        width: 280px;
+        width: 240px;
         filter: drop-shadow(0px 10px 22px {user_team_color}cc);
         border-radius: 12px;
     }}
@@ -324,8 +332,9 @@ st.markdown(f"""
         background: rgba(15, 23, 42, 0.94);
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-bottom: 3px solid {user_team_color};
-        padding: 12px 22px;
-        margin-bottom: 24px;
+        padding: 10px 22px;
+        margin-top: 4px;
+        margin-bottom: 20px;
         border-radius: 0 0 16px 16px;
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
@@ -664,7 +673,6 @@ st.markdown(f"""
         <div class="nfl-subtitle">Weekly NFL Predictions & Wagers</div>
     </div>
 """, unsafe_allow_html=True)
-st.write("")
 
 def sync_and_get_user_badges(target_user_id, check_celebration=False):
     try:
@@ -3221,7 +3229,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 998,
+                        "week_number": 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
