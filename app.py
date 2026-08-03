@@ -55,7 +55,7 @@ if "form_refresh" not in st.session_state:
 # --- CACHED HELPERS FOR ADMIN & PERFORMANCE ---
 @st.cache_data(ttl=30)
 def get_cached_profiles():
-    res = supabase.table("profiles").select("id, full_name, tokens, favorite_team, is_admin, avatar_emoji, avatar_border, avatar_color, selected_title, featured_badges, unlocked_badges, favorite_player, bio, default_league_view").execute()
+    res = supabase.table("profiles").select("id, full_name, tokens, favorite_team, is_admin, avatar_emoji, avatar_border, avatar_color, selected_title, featured_badges, unlocked_badges, favorite_player, bio, default_league_view, email_notifications, high_contrast_mode, reduced_motion").execute()
     return res.data if res.data else []
 
 @st.cache_data(ttl=30)
@@ -1061,7 +1061,10 @@ if st.session_state.user is None:
                                 "favorite_player": "",
                                 "avatar_color": "#1e3a8a",
                                 "selected_title": "🏈 Gridiron Contender",
-                                "default_league_view": "00000000-0000-0000-0000-000000000001"
+                                "default_league_view": "00000000-0000-0000-0000-000000000001",
+                                "email_notifications": True,
+                                "high_contrast_mode": False,
+                                "reduced_motion": False
                             }).execute()
                             
                             # Automatically join Main League ("Falcons") and Global League
@@ -1107,7 +1110,10 @@ else:
                 "favorite_player": "",
                 "avatar_color": "#1e3a8a",
                 "selected_title": "🏈 Gridiron Contender",
-                "default_league_view": "00000000-0000-0000-0000-000000000001"
+                "default_league_view": "00000000-0000-0000-0000-000000000001",
+                "email_notifications": True,
+                "high_contrast_mode": False,
+                "reduced_motion": False
             }).execute()
             
             try:
@@ -1135,7 +1141,10 @@ else:
                 "favorite_player": "",
                 "avatar_color": "#1e3a8a",
                 "selected_title": "🏈 Gridiron Contender",
-                "default_league_view": "00000000-0000-0000-0000-000000000001"
+                "default_league_view": "00000000-0000-0000-0000-000000000001",
+                "email_notifications": True,
+                "high_contrast_mode": False,
+                "reduced_motion": False
             }
     
     user_avatar = profile.get("avatar_emoji", "🏈")
@@ -1230,22 +1239,22 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    # Dynamic tabs configuration based on admin/commissioner privileges with enhanced icons
+    # Dynamic tabs configuration based on admin/commissioner privileges with enhanced icons and Settings tab added
     if profile.get("is_admin") and is_any_league_admin:
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin, tab_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish", "⚙️ Admin"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin, tab_settings, tab_admin = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish", "⚙️ Settings", "🛠️ Admin"]
         )
     elif profile.get("is_admin"):
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⚙️ Admin"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_settings, tab_admin = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⚙️ Settings", "🛠️ Admin"]
         )
     elif is_any_league_admin:
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin, tab_settings = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⭐ Commish", "⚙️ Settings"]
         )
     else:
-        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues = st.tabs(
-            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues"]
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_settings = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules", "🎯 Bets", "📜 History", "🛡️ Leagues", "⚙️ Settings"]
         )
 
     # ------------------------------------------
@@ -1574,7 +1583,7 @@ else:
     # ------------------------------------------
     with tab_profile:
         st.header("👤 Profile & Customization Hub")
-        st.caption("Personalize your display avatar, title nametag, border style, avatar color, favorite player, favorite team, default league view, and featured badges!")
+        st.caption("Personalize your display avatar, title nametag, border style, avatar color, favorite player, favorite team, and featured badges!")
         
         curr_team = profile.get("favorite_team", "🏈 Free Agent / Neutral")
         team_index = NFL_TEAMS.index(curr_team) if curr_team in NFL_TEAMS else 0
@@ -1587,23 +1596,6 @@ else:
             st.image(selected_team_data["logo"], width=75)
         with col_info:
             st.markdown(f"### {new_team}")
-
-        # Fetch all memberships for default league view preference
-        my_memberships_pref = supabase.table("league_members").select("league_id, leagues(id, league_name)").eq("user_id", user_id).execute().data
-        all_my_leagues_pref = [m for m in my_memberships_pref if m.get("leagues")]
-        
-        league_pref_options = {}
-        for m_item in all_my_leagues_pref:
-            l_obj = m_item.get("leagues")
-            if l_obj:
-                if l_obj["id"] == "00000000-0000-0000-0000-000000000001":
-                    league_pref_options["🏆 Global Leaderboard"] = l_obj["id"]
-                else:
-                    league_pref_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
-
-        curr_default_league = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
-        default_league_label = next((k for k, v in league_pref_options.items() if v == curr_default_league), list(league_pref_options.keys())[0] if league_pref_options else "🏆 Global Leaderboard")
-        league_pref_index = list(league_pref_options.keys()).index(default_league_label) if default_league_label in league_pref_options else 0
 
         user_badges_for_titles = sync_and_get_user_badges(user_id)
         unlocked_title_options = []
@@ -1643,9 +1635,6 @@ else:
                 curr_av_color = profile.get("avatar_color", "#1e3a8a")
                 new_av_color = st.color_picker("Avatar Box Color", value=curr_av_color)
 
-            new_default_league_label = st.selectbox("Default Leaderboard View (on Leagues Tab)", list(league_pref_options.keys()), index=league_pref_index, help="Choose which leaderboard or mini-league opens by default when you visit the Leagues tab.")
-            new_default_league_id = league_pref_options[new_default_league_label]
-
             new_fav_player = st.text_input("Favorite NFL Player", value=profile.get("favorite_player", ""))
             new_bio = st.text_input("Profile Catchphrase / Bio (max 100 chars)", value=profile.get("bio", "Ready for Kickoff!"), max_chars=100)
             
@@ -1662,7 +1651,6 @@ else:
                         "avatar_emoji": new_avatar,
                         "avatar_border": new_border,
                         "avatar_color": new_av_color,
-                        "default_league_view": new_default_league_id,
                         "favorite_player": new_fav_player.strip(),
                         "bio": new_bio.strip()
                     }).eq("id", user_id).execute()
@@ -2328,7 +2316,7 @@ else:
     # ------------------------------------------
     with tab_leagues:
         st.header("🏆 League Standings & Mini-Leagues")
-        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also set your preferred default view in your Profile tab.")
+        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also set your preferred default view in your Settings tab.")
         st.write("")
 
         # Fetch all memberships
@@ -2696,6 +2684,116 @@ else:
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
+
+    # ------------------------------------------
+    # TAB 6: SETTINGS
+    # ------------------------------------------
+    with tab_settings:
+        st.header("⚙️ Account & App Settings")
+        st.caption("Manage your account security, notification preferences, default leaderboard views, and accessibility options.")
+        st.write("")
+
+        # 1. Default Leaderboard View Section
+        st.subheader("🏆 Leaderboard Preferences")
+        my_memberships_s = supabase.table("league_members").select("league_id, leagues(id, league_name)").eq("user_id", user_id).execute().data
+        all_my_leagues_s = [m for m in my_memberships_s if m.get("leagues")]
+        
+        league_s_options = {}
+        for m_item in all_my_leagues_s:
+            l_obj = m_item.get("leagues")
+            if l_obj:
+                if l_obj["id"] == "00000000-0000-0000-0000-000000000001":
+                    league_s_options["🏆 Global Leaderboard"] = l_obj["id"]
+                else:
+                    league_s_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
+
+        curr_def_s = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
+        def_s_label = next((k for k, v in league_s_options.items() if v == curr_def_s), list(league_s_options.keys()[0] if league_s_options else "🏆 Global Leaderboard"))
+        s_index = list(league_s_options.keys()).index(def_s_label) if def_s_label in league_s_options else 0
+
+        with st.form("settings_leaderboard_form"):
+            new_def_league_label = st.selectbox("Default Leaderboard on Leagues Tab", list(league_s_options.keys()), index=s_index)
+            new_def_league_id = league_s_options[new_def_league_label]
+            
+            save_def_league = st.form_submit_button("Save Leaderboard Preference 💾", type="primary")
+            if save_def_league:
+                supabase.table("profiles").update({"default_league_view": new_def_league_id}).eq("id", user_id).execute()
+                st.success("Default leaderboard view updated successfully!")
+                st.rerun()
+
+        st.divider()
+
+        # 2. Account Security & Credential Management
+        st.subheader("🔐 Account Security")
+        
+        with st.form("settings_password_form"):
+            st.markdown("##### Change Password")
+            new_pass1 = st.text_input("New Password (min 6 chars)", type="password", key="settings_new_pass1")
+            new_pass2 = st.text_input("Confirm New Password", type="password", key="settings_new_pass2")
+            
+            submit_pass = st.form_submit_button("Update Password 🔑")
+            if submit_pass:
+                if len(new_pass1) < 6:
+                    st.warning("Password must be at least 6 characters long.")
+                elif new_pass1 != new_pass2:
+                    st.error("Passwords do not match.")
+                else:
+                    try:
+                        supabase.auth.update_user({"password": new_pass1})
+                        st.success("Password updated successfully!")
+                    except Exception as e:
+                        st.error(f"Error updating password: {e}")
+
+        with st.form("settings_email_form"):
+            st.markdown("##### Change Registered Email")
+            st.caption(f"Current Email: `{st.session_state.user.email}`")
+            new_email_input = st.text_input("New Email Address", key="settings_new_email")
+            
+            submit_email = st.form_submit_button("Update Email ✉️")
+            if submit_email:
+                if not new_email_input.strip() or "@" not in new_email_input:
+                    st.warning("Please enter a valid email address.")
+                else:
+                    try:
+                        supabase.auth.update_user({"email": new_email_input.strip()})
+                        supabase.table("profiles").update({"email": new_email_input.strip()}).eq("id", user_id).execute()
+                        st.success("Email update requested! Check your new email inbox for confirmation.")
+                    except Exception as e:
+                        st.error(f"Error updating email: {e}")
+
+        st.divider()
+
+        # 3. Notification Preferences
+        st.subheader("🔔 Notification Preferences")
+        with st.form("settings_notifications_form"):
+            curr_notif = profile.get("email_notifications", True)
+            new_notif = st.toggle("Enable Email / In-App Result Alerts & Reminders", value=curr_notif)
+            
+            save_notif = st.form_submit_button("Save Notification Settings 💾")
+            if save_notif:
+                supabase.table("profiles").update({"email_notifications": new_notif}).eq("id", user_id).execute()
+                st.success("Notification preferences saved!")
+                st.rerun()
+
+        st.divider()
+
+        # 4. Accessibility & UI Options
+        st.subheader("♿ Accessibility & Display Preferences")
+        with st.form("settings_accessibility_form"):
+            curr_hc = profile.get("high_contrast_mode", False)
+            curr_rm = profile.get("reduced_motion", False)
+            
+            new_hc = st.toggle("High Contrast Mode (Enhanced text legibility)", value=curr_hc)
+            new_rm = st.toggle("Reduced Motion (Disable glowing animations & pulses)", value=curr_rm)
+            
+            save_access = st.form_submit_button("Save Accessibility Settings 💾")
+            if save_access:
+                supabase.table("profiles").update({
+                    "high_contrast_mode": new_hc,
+                    "reduced_motion": new_rm
+                }).eq("id", user_id).execute()
+                st.success("Accessibility preferences saved!")
+                st.rerun()
 
     # ------------------------------------------
     # TAB: LEAGUE ADMIN (ONLY FOR LEAGUE ADMINS)
@@ -3365,7 +3463,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 998,
+                        "week_number": 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
