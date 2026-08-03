@@ -18,6 +18,23 @@ st.set_page_config(
 # Initialize the persistent cookie controller
 controller = CookieController()
 
+# --- PROFANITY & SWEAR WORD FILTER CONFIGURATION ---
+PROFANITY_FILTER = [
+    # Add your list of restricted / banned words here in lowercase
+    "damn", "crap", "shit", "fuck", "bitch", "asshole", "dick", "cunt", "bastard", "Nazi", "Holocaust", "prick", "Paedo", "Pedo", "Penis"
+]
+
+def contains_profanity(text: str) -> bool:
+    if not text:
+        return False
+    text_lower = text.lower()
+    words = text_lower.split()
+    # Check both whole word matching and substring matching for rigorous safety
+    for p_word in PROFANITY_FILTER:
+        if p_word in text_lower or any(p_word == w for w in words):
+            return True
+    return False
+
 # --- SUPABASE CONFIGURATION (RENDER & STREAMLIT COMPATIBLE) ---
 def get_supabase_client() -> Client:
     if "supabase_client" not in st.session_state:
@@ -1051,43 +1068,46 @@ if st.session_state.user is None:
                     st.warning("Please enter your email address.")
                 else:
                     combined_full_name = f"{reg_first_name.strip()} {reg_surname.strip()}"
-                    try:
-                        res = supabase.auth.sign_up({"email": reg_email.strip(), "password": reg_password})
-                        if res.user:
-                            new_uid = res.user.id
-                            supabase.table("profiles").insert({
-                                "id": new_uid,
-                                "email": reg_email.strip(),
-                                "full_name": combined_full_name,
-                                "tokens": 10,
-                                "is_admin": False,
-                                "favorite_team": "🏈 Free Agent / Neutral",
-                                "bio": "Ready for Kickoff!",
-                                "avatar_emoji": "🏈",
-                                "featured_badges": [],
-                                "unlocked_badges": [],
-                                "avatar_border": "solid",
-                                "favorite_player": "",
-                                "avatar_color": "#1e3a8a",
-                                "selected_title": "🏈 Gridiron Contender",
-                                "default_league_view": "00000000-0000-0000-0000-000000000001",
-                                "email_notifications": True,
-                                "high_contrast_mode": False,
-                                "reduced_motion": False
-                            }).execute()
-                            
-                            # Automatically join Main League ("Falcons") and Global League
-                            try:
-                                supabase.table("league_members").insert([
-                                    {"league_id": "00000000-0000-0000-0000-000000000001", "user_id": new_uid},
-                                    {"league_id": "00000000-0000-0000-0000-000000000002", "user_id": new_uid}
-                                ]).execute()
-                            except Exception:
-                                pass
+                    if contains_profanity(combined_full_name):
+                        st.error("⚠️ Your name contains restricted language. Please choose appropriate wording.")
+                    else:
+                        try:
+                            res = supabase.auth.sign_up({"email": reg_email.strip(), "password": reg_password})
+                            if res.user:
+                                new_uid = res.user.id
+                                supabase.table("profiles").insert({
+                                    "id": new_uid,
+                                    "email": reg_email.strip(),
+                                    "full_name": combined_full_name,
+                                    "tokens": 10,
+                                    "is_admin": False,
+                                    "favorite_team": "🏈 Free Agent / Neutral",
+                                    "bio": "Ready for Kickoff!",
+                                    "avatar_emoji": "🏈",
+                                    "featured_badges": [],
+                                    "unlocked_badges": [],
+                                    "avatar_border": "solid",
+                                    "favorite_player": "",
+                                    "avatar_color": "#1e3a8a",
+                                    "selected_title": "🏈 Gridiron Contender",
+                                    "default_league_view": "00000000-0000-0000-0000-000000000001",
+                                    "email_notifications": True,
+                                    "high_contrast_mode": False,
+                                    "reduced_motion": False
+                                }).execute()
+                                
+                                # Automatically join Main League ("Falcons") and Global League
+                                try:
+                                    supabase.table("league_members").insert([
+                                        {"league_id": "00000000-0000-0000-0000-000000000001", "user_id": new_uid},
+                                        {"league_id": "00000000-0000-0000-0000-000000000002", "user_id": new_uid}
+                                    ]).execute()
+                                except Exception:
+                                    pass
 
-                            st.success("Account created successfully! You can now log in using the Log In tab above.")
-                    except Exception as e:
-                        st.error(f"Sign up failed: {e}")
+                                st.success("Account created successfully! You can now log in using the Log In tab above.")
+                        except Exception as e:
+                            st.error(f"Sign up failed: {e}")
 
 # ==========================================
 # 2. MAIN LOGGED-IN GAME PORTAL
@@ -1652,6 +1672,8 @@ else:
             if save_profile:
                 if not new_display_name.strip():
                     st.error("Display Name cannot be blank.")
+                elif contains_profanity(new_display_name) or contains_profanity(new_fav_player) or contains_profanity(new_bio):
+                    st.error("⚠️ Your profile input contains restricted language. Please choose appropriate wording.")
                 else:
                     supabase.table("profiles").update({
                         "full_name": new_display_name.strip(),
@@ -2076,7 +2098,9 @@ else:
                             st.rerun()
 
                         if submit_bet and not is_locked:
-                            if total_wagered > true_global_tokens_bet:
+                            if contains_profanity(td_pick):
+                                st.error("⚠️ Your Touchdown Scorer player pick contains restricted language. Please choose a valid player name.")
+                            elif total_wagered > true_global_tokens_bet:
                                 st.error(f"Cannot wager {total_wagered} tokens! You only have {true_global_tokens_bet} tokens available.")
                             else:
                                 for q_id, pick_val in picks.items():
@@ -2332,11 +2356,11 @@ else:
                 st.info("Side-by-side historical comparison will unlock here automatically once at least one week has be fully graded by the Admin and you share a league with other active participants!")
 
     # ------------------------------------------
-    # TAB 5: LEAGUES
+    # TAB 5: LEAGUES (UPDATED WITH EXCLUSIVE LEAGUE NEMESIS & DEFAULT VIEW)
     # ------------------------------------------
     with tab_leagues:
         st.header("🏆 League Standings & Mini-Leagues")
-        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also configure your default league standings view below.")
+        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. Your Nemesis is tracked exclusively within the selected league!")
         st.write("")
 
         # Fetch all memberships
@@ -2382,6 +2406,7 @@ else:
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
                 allowed_peer_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
 
+            # Pass allowed_peer_ids so Nemesis is exclusively calculated from members of this selected league!
             filtered_player_stats = get_cached_leaderboard_stats(allowed_peer_ids=allowed_peer_ids)
 
             if not filtered_player_stats:
@@ -2572,16 +2597,19 @@ else:
                     post_chat = st.form_submit_button("Post Message 💬")
                     
                     if post_chat and chat_msg.strip():
-                        try:
-                            supabase.table("trash_talk").insert({
-                                "user_id": user_id,
-                                "message": chat_msg.strip(),
-                                "league_id": chat_target_id
-                            }).execute()
-                            st.success("Message posted!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error posting message: {e}")
+                        if contains_profanity(chat_msg):
+                            st.error("⚠️ Your message contains restricted language. Please keep chat friendly!")
+                        else:
+                            try:
+                                supabase.table("trash_talk").insert({
+                                    "user_id": user_id,
+                                    "message": chat_msg.strip(),
+                                    "league_id": chat_target_id
+                                }).execute()
+                                st.success("Message posted!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error posting message: {e}")
 
                 recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").eq("league_id", chat_target_id).order("created_at", desc=True).limit(10).execute().data
                 all_profiles_chat = get_cached_profiles()
@@ -2609,7 +2637,7 @@ else:
 
         st.divider()
 
-        # --- DEFAULT LEADERBOARD VIEW SETTING (MOVED HERE) ---
+        # --- DEFAULT LEADERBOARD VIEW & DEFAULT LEAGUE SETTING ---
         st.subheader("⚙️ Default Standings View")
         st.caption("Configure which league standings view automatically displays when you open the Leagues tab.")
         
@@ -2654,6 +2682,8 @@ else:
                 if submit_create_league:
                     if not new_league_name.strip():
                         st.error("Please enter a valid league name.")
+                    elif contains_profanity(new_league_name):
+                        st.error("⚠️ League name contains restricted language. Please choose appropriate wording.")
                     else:
                         import random as r_mod, string as s_mod
                         invite_code = ''.join(r_mod.choices(s_mod.ascii_uppercase + s_mod.digits, k=6))
@@ -2871,6 +2901,8 @@ else:
                         if save_settings_btn:
                             if not new_l_name.strip():
                                 st.error("League name cannot be blank.")
+                            elif contains_profanity(new_l_name):
+                                st.error("⚠️ League name contains restricted language. Please choose appropriate wording.")
                             else:
                                 supabase.table("leagues").update({
                                     "league_name": new_l_name.strip(),
@@ -3044,26 +3076,30 @@ else:
                     save_all_questions_btn = st.form_submit_button("Save & Publish All Questions 💾", type="primary")
                     
                     if save_all_questions_btn:
-                        for item in question_payloads:
-                            if item["prompt"]:
-                                combined_text = f"{item['prompt']} | MATCHUP: {item['away']} @ {item['home']}"
-                                
-                                if item["db_id"]:
-                                    supabase.table("weekly_questions").update({
-                                        "question_text": combined_text
-                                    }).eq("id", item["db_id"]).execute()
-                                else:
-                                    supabase.table("weekly_questions").insert({
-                                        "week_number": selected_manage_week,
-                                        "question_number": item["question_number"],
-                                        "question_text": combined_text,
-                                        "winning_answer": "Pending"
-                                    }).execute()
+                        has_profane_q = any(contains_profanity(item["prompt"]) for item in question_payloads)
+                        if has_profane_q:
+                            st.error("⚠️ One or more question prompts contain restricted language. Please edit them before publishing.")
+                        else:
+                            for item in question_payloads:
+                                if item["prompt"]:
+                                    combined_text = f"{item['prompt']} | MATCHUP: {item['away']} @ {item['home']}"
                                     
-                        st.cache_data.clear()
-                        st.balloons()
-                        st.success(f"Successfully saved and updated Week {selected_manage_week} questions!")
-                        st.rerun()
+                                    if item["db_id"]:
+                                        supabase.table("weekly_questions").update({
+                                            "question_text": combined_text
+                                        }).eq("id", item["db_id"]).execute()
+                                    else:
+                                        supabase.table("weekly_questions").insert({
+                                            "week_number": selected_manage_week,
+                                            "question_number": item["question_number"],
+                                            "question_text": combined_text,
+                                            "winning_answer": "Pending"
+                                        }).execute()
+                                        
+                            st.cache_data.clear()
+                            st.balloons()
+                            st.success(f"Successfully saved and updated Week {selected_manage_week} questions!")
+                            st.rerun()
 
             elif admin_sec == "Auto-Lockout Scheduler":
                 st.subheader("⏰ Auto-Lockout Scheduler & Emergency Override")
