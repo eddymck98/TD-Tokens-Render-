@@ -869,7 +869,7 @@ def get_earned_title(target_user_id):
     return "🏈 Gridiron Contender"
 
 @st.cache_data(ttl=60)
-def calculate_nemesis(target_user_id):
+def calculate_nemesis(target_user_id, allowed_peer_ids=None):
     try:
         user_bets = supabase.table("user_bets").select("week_number, question_id, pick").eq("user_id", target_user_id).execute().data
         if not user_bets:
@@ -879,7 +879,13 @@ def calculate_nemesis(target_user_id):
         rival_disagreements = {}
         
         for (w_num, q_id), u_pick in user_picks_map.items():
-            other_bets = supabase.table("user_bets").select("user_id, pick, weekly_questions(winning_answer)").eq("week_number", w_num).eq("question_id", q_id).neq("user_id", target_user_id).execute().data
+            other_bets_query = supabase.table("user_bets").select("user_id, pick, weekly_questions(winning_answer)").eq("week_number", w_num).eq("question_id", q_id).neq("user_id", target_user_id)
+            if allowed_peer_ids is not None:
+                if not allowed_peer_ids:
+                    continue
+                other_bets_query = other_bets_query.in_("user_id", list(allowed_peer_ids))
+                
+            other_bets = other_bets_query.execute().data
             if other_bets:
                 for ob in other_bets:
                     rival_id = ob['user_id']
@@ -923,13 +929,16 @@ def calculate_streak(target_user_id):
         return "0W"
 
 @st.cache_data(ttl=60)
-def get_cached_leaderboard_stats():
+def get_cached_leaderboard_stats(allowed_peer_ids=None):
     leader_res = get_cached_profiles()
     stats = []
     if not leader_res:
         return stats
         
     for p in leader_res:
+        if allowed_peer_ids is not None and p["id"] not in allowed_peer_ids:
+            continue
+            
         true_global_tokens = get_true_global_token_balance(p["id"])
         
         correct_tds = supabase.table("touchdown_picks").select("*").eq("user_id", p["id"]).eq("is_correct", True).execute().data
@@ -945,7 +954,7 @@ def get_cached_leaderboard_stats():
                     wins += 1
         win_rate = int((wins / total_graded) * 100) if total_graded > 0 else 0
         
-        nem_name, nem_score = calculate_nemesis(p["id"])
+        nem_name, nem_score = calculate_nemesis(p["id"], allowed_peer_ids=allowed_peer_ids)
         player_streak = calculate_streak(p["id"])
         
         stats.append({
@@ -1839,7 +1848,7 @@ else:
                 *A:* You can name any player to score a rushing or receiving touchdown. Passing touchdowns do not count. If your selected player scores, you pocket **+5 bonus tokens** for the following week!
 
                 **Q: What is a "Nemesis" on the leaderboard?**  
-                *A:* Your Nemesis is the player you disagreed with the most on weekly bets where they ended up winning points at your expense!
+                *A:* Your Nemesis is the player in your selected league whom you disagreed with the most on weekly bets where they ended up winning points at your expense!
 
                 **Q: How do I unlock prestigious nametag titles?**  
                 *A:* Titles like *The Oracle*, *Token Tycoon*, and *Gridiron Prophet* unlock automatically as you achieve milestone records or unlock specific badges in your Virtual Trophy Cabinet. Once unlocked, you can select them from your **Profile** tab!
@@ -2327,14 +2336,14 @@ else:
     # ------------------------------------------
     with tab_leagues:
         st.header("🏆 League Standings & Mini-Leagues")
-        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also set your preferred default view in your Settings tab.")
+        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also configure your default league standings view below.")
         st.write("")
 
         # Fetch all memberships
         my_memberships = supabase.table("league_members").select("league_id, leagues(id, league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
         all_my_leagues = [m for m in my_memberships if m.get("leagues")]
 
-        # Separate Global Leaderboard from mini-leagues ("Falcons" and custom ones)
+        # Separate Global Leaderboard from mini-leagues
         global_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
         mini_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
 
@@ -2366,13 +2375,14 @@ else:
             clean_display_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "").replace(" (Mini-League)", "")
             st.subheader(f"{icon_prefix} {clean_display_name} Standings")
             
+            # Determine allowed peer user IDs for this specific view (for Nemesis calculation and leaderboard filtering)
             if is_global_view:
-                filtered_player_stats = get_cached_leaderboard_stats()
+                allowed_peer_ids = None # Global view allows all users
             else:
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
-                allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
-                player_stats = get_cached_leaderboard_stats()
-                filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
+                allowed_peer_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
+
+            filtered_player_stats = get_cached_leaderboard_stats(allowed_peer_ids=allowed_peer_ids)
 
             if not filtered_player_stats:
                 st.info("No players found in this standings view yet.")
@@ -2599,6 +2609,36 @@ else:
 
         st.divider()
 
+        # --- DEFAULT LEADERBOARD VIEW SETTING (MOVED HERE) ---
+        st.subheader("⚙️ Default Standings View")
+        st.caption("Configure which league standings view automatically displays when you open the Leagues tab.")
+        
+        with st.form("settings_league_tab_form"):
+            curr_def_l = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
+            league_s_options = {}
+            for m_item in all_my_leagues:
+                l_obj = m_item.get("leagues")
+                if l_obj:
+                    if l_obj["id"] == "00000000-0000-0000-0000-000000000001":
+                        league_s_options["🏆 Global Leaderboard"] = l_obj["id"]
+                    else:
+                        league_s_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
+
+            default_keys_list = list(league_s_options.keys())
+            def_s_label = next((k for k, v in league_s_options.items() if v == curr_def_l), default_keys_list[0] if default_keys_list else "🏆 Global Leaderboard")
+            s_index = default_keys_list.index(def_s_label) if def_s_label in default_keys_list else 0
+
+            new_def_league_label = st.selectbox("Default Standings View", default_keys_list, index=s_index, key="leagues_tab_default_view_select")
+            new_def_league_id = league_s_options[new_def_league_label]
+            
+            save_def_league = st.form_submit_button("Save Default View 💾", type="primary")
+            if save_def_league:
+                supabase.table("profiles").update({"default_league_view": new_def_league_id}).eq("id", user_id).execute()
+                st.success("Default standings view updated successfully!")
+                st.rerun()
+
+        st.divider()
+
         # --- CREATE OR JOIN CUSTOM LEAGUES ---
         st.subheader("➕ Create or Join Custom Leagues")
         
@@ -2701,41 +2741,10 @@ else:
     # ------------------------------------------
     with tab_settings:
         st.header("⚙️ Account & App Settings")
-        st.caption("Manage your account security, notification preferences, default leaderboard views, and accessibility options.")
+        st.caption("Manage your account security, notification preferences, and accessibility options.")
         st.write("")
 
-        # 1. Default Leaderboard View Section
-        st.subheader("🏆 Leaderboard Preferences")
-        my_memberships_s = supabase.table("league_members").select("league_id, leagues(id, league_name)").eq("user_id", user_id).execute().data
-        all_my_leagues_s = [m for m in my_memberships_s if m.get("leagues")]
-        
-        league_s_options = {}
-        for m_item in all_my_leagues_s:
-            l_obj = m_item.get("leagues")
-            if l_obj:
-                if l_obj["id"] == "00000000-0000-0000-0000-000000000001":
-                    league_s_options["🏆 Global Leaderboard"] = l_obj["id"]
-                else:
-                    league_s_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
-
-        curr_def_s = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
-        default_keys_list = list(league_s_options.keys())
-        def_s_label = next((k for k, v in league_s_options.items() if v == curr_def_s), default_keys_list[0] if default_keys_list else "🏆 Global Leaderboard")
-        s_index = default_keys_list.index(def_s_label) if def_s_label in default_keys_list else 0
-
-        with st.form("settings_leaderboard_form"):
-            new_def_league_label = st.selectbox("Default Leaderboard on Leagues Tab", default_keys_list, index=s_index)
-            new_def_league_id = league_s_options[new_def_league_label]
-            
-            save_def_league = st.form_submit_button("Save Leaderboard Preference 💾", type="primary")
-            if save_def_league:
-                supabase.table("profiles").update({"default_league_view": new_def_league_id}).eq("id", user_id).execute()
-                st.success("Default leaderboard view updated successfully!")
-                st.rerun()
-
-        st.divider()
-
-        # 2. Account Security & Credential Management
+        # 1. Account Security & Credential Management
         st.subheader("🔐 Account Security")
         
         with st.form("settings_password_form"):
@@ -2775,7 +2784,7 @@ else:
 
         st.divider()
 
-        # 3. Notification Preferences
+        # 2. Notification Preferences
         st.subheader("🔔 Notification Preferences")
         with st.form("settings_notifications_form"):
             curr_notif = profile.get("email_notifications", True)
@@ -2789,7 +2798,7 @@ else:
 
         st.divider()
 
-        # 4. Accessibility & UI Options
+        # 3. Accessibility & UI Options
         st.subheader("♿ Accessibility & Display Preferences")
         with st.form("settings_accessibility_form"):
             curr_hc = profile.get("high_contrast_mode", False)
