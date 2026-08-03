@@ -21,7 +21,7 @@ controller = CookieController()
 # --- PROFANITY & SWEAR WORD FILTER CONFIGURATION ---
 PROFANITY_FILTER = [
     # Add your list of restricted / banned words here in lowercase
-    "damn", "crap", "shit", "fuck", "bitch", "asshole", "dick", "cunt", "bastard", "Nazi", "Holocaust", "prick", "Paedo", "Pedo", "Penis"
+    "damn", "hell", "crap", "shit", "fuck", "bitch", "asshole", "dick", "cunt", "bastard"
 ]
 
 def contains_profanity(text: str) -> bool:
@@ -804,13 +804,6 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
     if total_lifetime_won >= 100:
         newly_earned.add("💰 Century Club")
 
-    champ_setting = supabase.table("weekly_questions").select("question_text, winning_answer").eq("week_number", 999).execute().data
-    if champ_setting and champ_setting[0]["winning_answer"] == "ON":
-        champ_name = champ_setting[0]["question_text"]
-        user_prof = supabase.table("profiles").select("full_name").eq("id", target_user_id).single().execute().data
-        if user_prof and user_prof.get("full_name") == champ_name:
-            newly_earned.add("🏆 League Champion")
-
     graded_q = supabase.table("weekly_questions").select("week_number").neq("week_number", 999).neq("week_number", 998).neq("week_number", 997).neq("week_number", 96).neq("winning_answer", "Pending").neq("winning_answer", "LOCKED").order("week_number", desc=True).execute().data
     if graded_q:
         latest_w = graded_q[0]["week_number"]
@@ -1290,19 +1283,6 @@ else:
     # TAB 0: HOME
     # ------------------------------------------
     with tab_home:
-        champ_setting = supabase.table("weekly_questions").select("question_text, winning_answer").eq("week_number", 999).execute().data
-        
-        if champ_setting and champ_setting[0]["winning_answer"] == "ON":
-            st.balloons()
-            champ_name = champ_setting[0]["question_text"]
-            st.markdown(f"""
-                <div class="champion-card">
-                    <div style="font-size: 22px; letter-spacing: 2px; text-transform: uppercase;">🏆 LEAGUE CHAMPION DECLARED 🏆</div>
-                    <div style="font-size: 52px; font-weight: 900; margin: 10px 0;">{champ_name}</div>
-                    <div style="font-size: 18px;">Congratulations to the Touchdown Tokens Champion! 👑</div>
-                </div>
-            """, unsafe_allow_html=True)
-
         st.markdown(f"## Welcome back, {profile['full_name']}! 👋")
         
         st.markdown(f"""
@@ -2553,7 +2533,7 @@ else:
                         archives_res = []
 
                     if not archives_res:
-                        st.info("No past season archives found yet for this mini-league. Archived seasons will appear here once the admin concludes and archives a season!")
+                        st.info("No past season archives found yet for this mini-league. Archived seasons will appear here once the commissioner concludes and archives a season!")
                     else:
                         archive_labels = [a["season_label"] for a in archives_res]
                         selected_archive_label = st.selectbox("Select Season Archive", archive_labels, key=f"hof_archive_sel_{selected_league_filter_id}")
@@ -2961,7 +2941,53 @@ else:
                         else:
                             st.info("No other members in this league to remove.")
 
-                with st.expander("🔑 4. Invite Code & Ownership Tools", expanded=False):
+                with st.expander("👑 4. Conclude Season & Crown Champion", expanded=False):
+                    st.caption("Snapshot current mini-league standings, crown the #1 player as Champion, and archive the season into your Hall of Fame.")
+                    
+                    with st.form(f"conclude_season_form_{l_id}"):
+                        season_label_input = st.text_input("Season Label / Title", value="2026 Season", placeholder="e.g., 2026 Office Chumps Season")
+                        confirm_conclude = st.checkbox(f"I confirm I want to conclude the season for {l_name}, archive standings, and crown the winner.")
+                        
+                        submit_conclude = st.form_submit_button("Crown Champion & Archive Season 🏆", type="primary")
+                        if submit_conclude:
+                            if not confirm_conclude:
+                                st.warning("Please check the confirmation box to proceed.")
+                            else:
+                                try:
+                                    # Fetch all profiles
+                                    all_profiles_snapshot = get_cached_profiles()
+                                    league_member_ids = {m["user_id"] for m in members_res} if members_res else set()
+                                    
+                                    # Filter and sort members by tokens descending
+                                    league_players = [p for p in all_profiles_snapshot if p["id"] in league_member_ids]
+                                    league_players_sorted = sorted(league_players, key=lambda x: (-x["tokens"], x["full_name"]))
+                                    
+                                    if league_players_sorted:
+                                        champ_user_id = league_players_sorted[0]["id"]
+                                        # Grant League Champion badge/title logic update for winner
+                                        champ_prof = supabase.table("profiles").select("unlocked_badges").eq("id", champ_user_id).single().execute().data
+                                        if champ_prof:
+                                            unlocked_b = champ_prof.get("unlocked_badges", [])
+                                            if not isinstance(unlocked_b, list): unlocked_b = []
+                                            if "🏆 League Champion" not in unlocked_b:
+                                                unlocked_b.append("🏆 League Champion")
+                                                supabase.table("profiles").update({"unlocked_badges": unlocked_b, "selected_title": "👑 League Champion"}).eq("id", champ_user_id).execute()
+
+                                    # Save into archived_seasons
+                                    supabase.table("archived_seasons").insert({
+                                        "league_id": l_id,
+                                        "season_label": season_label_input.strip(),
+                                        "standings_json": league_players_sorted
+                                    }).execute()
+
+                                    st.cache_data.clear()
+                                    st.balloons()
+                                    st.success(f"Successfully concluded '{season_label_input}' for {l_name}! Champion crowned and archived to Hall of Fame.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error concluding season: {e}")
+
+                with st.expander("🔑 5. Invite Code & Ownership Tools", expanded=False):
                     col_tc1, col_tc2 = st.columns(2)
                     with col_tc1:
                         st.markdown("##### Regenerate Invite Code")
@@ -2996,7 +3022,7 @@ else:
         with tab_admin:
             st.header("⚙️ System Admin Management Portal")
             
-            admin_sec = st.radio("Select Action", ["Manage Questions", "Auto-Lockout Scheduler", "Grade Week & Calculate Points", "Bulk Token Adjuster", "Export League Data (CSV)", "League Chat Announcement", "Archive & Reset Season", "Season Champion Banner", "App Access Control"], horizontal=True)
+            admin_sec = st.radio("Select Action", ["Manage Questions", "Auto-Lockout Scheduler", "Grade Week & Calculate Points", "Bulk Token Adjuster", "Export League Data (CSV)", "League Chat Announcement", "Archive & Reset Season", "App Access Control"], horizontal=True)
             
             if admin_sec == "Manage Questions":
                 st.subheader("📋 Manage & Edit Weekly Questions & Matchups")
@@ -3481,33 +3507,6 @@ Good luck this week! 🔥"""
                         st.success(f"Successfully archived '{season_label}' to the mini-league Hall of Fame and reset all player balances to 10 tokens!")
                     except Exception as e:
                         st.error(f"Error archiving and resetting season: {e}")
-
-            elif admin_sec == "Season Champion Banner":
-                st.subheader("🏆 End-of-Season Celebration Banner")
-                st.caption("Enable this banner to show confetti and a gold Champion card on the Home tab when the season ends.")
-                
-                all_players = get_cached_profiles()
-                player_names = [p["full_name"] for p in all_players] if all_players else ["Player"]
-                
-                champ_row = supabase.table("weekly_questions").select("*").eq("week_number", 999).execute().data
-                current_state = champ_row[0]["winning_answer"] in ["ON"] if champ_row else False
-                current_champ = champ_row[0]["question_text"] if champ_row else player_names[0]
-                
-                banner_toggle = st.toggle("Enable Season Champion Banner", value=current_state)
-                selected_champion = st.selectbox("Select Season Winner", player_names, index=player_names.index(current_champ) if current_champ in player_names else 0)
-                
-                if st.button("Save Champion Banner Settings 🏆"):
-                    state_str = "ON" if banner_toggle else "OFF"
-                    supabase.table("weekly_questions").delete().eq("week_number", 999).execute()
-                    supabase.table("weekly_questions").insert({
-                        "week_number": 999,
-                        "question_number": 1,
-                        "question_text": selected_champion,
-                        "winning_answer": state_str
-                    }).execute()
-                    st.cache_data.clear()
-                    st.success("Updated Season Champion Banner settings!")
-                    st.rerun()
 
             elif admin_sec == "App Access Control":
                 st.subheader("🔒 App Sign-In & Sign-Up Access Control")
