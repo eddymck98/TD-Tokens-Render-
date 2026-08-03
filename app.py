@@ -1054,6 +1054,17 @@ if st.session_state.user is None:
             reg_email = st.text_input("Email Address", key="reg_email")
             reg_password = st.text_input("Password (min 6 chars)", type="password", key="reg_pass")
             
+            st.write("")
+            with st.expander("📖 View Touchdown Tokens Terms & Conditions"):
+                st.markdown("""
+                    **1. Recreational Nature & Virtual Currency:** Touchdown Tokens is strictly a recreational, free-to-play prediction platform. Tokens hold zero real-world cash or monetary value and cannot be exchanged for currency or goods.  
+                    **2. Eligibility & Fair Play:** Each user is permitted one active account. Multi-accounting, collusion, or abusive trash talk is strictly prohibited and will result in account termination.  
+                    **3. Submissions & Scoring:** Weekly entries lock precisely 15 minutes before the first Sunday kickoff. All administrator scoring and grading decisions are final.  
+                    **4. Limitation of Liability:** We are not liable for temporary data outages, third-party ESPN API data errors, or suspended NFL fixtures.
+                """)
+
+            tc_accepted = st.checkbox("I agree to the Touchdown Tokens Terms & Conditions", key="reg_tc_checkbox")
+            
             if st.button("Sign Up", type="primary"):
                 if not reg_first_name.strip():
                     st.warning("Please enter your first name.")
@@ -1061,6 +1072,8 @@ if st.session_state.user is None:
                     st.warning("Please enter your surname.")
                 elif not reg_email.strip():
                     st.warning("Please enter your email address.")
+                elif not tc_accepted:
+                    st.warning("You must accept the Terms & Conditions to create an account.")
                 else:
                     combined_full_name = f"{reg_first_name.strip()} {reg_surname.strip()}"
                     if contains_profanity(combined_full_name):
