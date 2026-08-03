@@ -2406,27 +2406,28 @@ else:
 
                 st.divider()
 
-            # --- PAST SEASON ARCHIVES ---
-            with st.expander(f"🏛️ {clean_display_name} Archives", expanded=False):
-                archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
+            # --- PAST SEASON ARCHIVES (ONLY SHOWN FOR MINI-LEAGUES) ---
+            if not is_global_view:
+                with st.expander(f"🏛️ {clean_display_name} Archives", expanded=False):
+                    archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
 
-                champ_display_custom = f"{filtered_player_stats[0]['full_name']} ({filtered_player_stats[0]['tokens']} 🪙)" if filtered_player_stats else "TBD"
-                data_custom = [{"Rank": "🥇", "Player": p['full_name'], "Final Tokens": p['tokens']} for p in filtered_player_stats]
+                    champ_display_custom = f"{filtered_player_stats[0]['full_name']} ({filtered_player_stats[0]['tokens']} 🪙)" if filtered_player_stats else "TBD"
+                    data_custom = [{"Rank": "🥇", "Player": p['full_name'], "Final Tokens": p['tokens']} for p in filtered_player_stats]
 
-                st.markdown(f"""
-                    <div class="champion-card">
-                        <div style="font-size: 20px; letter-spacing: 2px;">👑 {archive_year_sel.upper()} CHAMPION ({clean_display_name})</div>
-                        <div style="font-size: 48px; font-weight: 900; margin: 8px 0;">{champ_display_custom}</div>
-                        <div style="font-size: 16px;">Crowned the ultimate victor of {clean_display_name}!</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                st.subheader(f"📜 {archive_year_sel} Official Season Final Standings — {clean_display_name}")
-                st.dataframe(pd.DataFrame(data_custom), use_container_width=True, hide_index=True)
+                    st.markdown(f"""
+                        <div class="champion-card">
+                            <div style="font-size: 20px; letter-spacing: 2px;">👑 {archive_year_sel.upper()} CHAMPION ({clean_display_name})</div>
+                            <div style="font-size: 48px; font-weight: 900; margin: 8px 0;">{champ_display_custom}</div>
+                            <div style="font-size: 16px;">Crowned the ultimate victor of {clean_display_name}!</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.subheader(f"📜 {archive_year_sel} Official Season Final Standings — {clean_display_name}")
+                    st.dataframe(pd.DataFrame(data_custom), use_container_width=True, hide_index=True)
 
-            st.divider()
+                st.divider()
 
-            # --- TRASH TALK FEED (ONLY SHOWN FOR MINI-LEAGUES, REMOVED FOR GLOBAL LEAGUE) ---
+            # --- TRASH TALK FEED (ONLY SHOWN FOR MINI-LEAGUES) ---
             if not is_global_view:
                 chat_target_id = selected_league_filter_id
                 st.subheader(f"💬 {clean_display_name} Trash Talk Feed")
