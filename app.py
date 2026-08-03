@@ -2468,48 +2468,6 @@ else:
                 """, unsafe_allow_html=True)
 
         st.divider()
-        
-        # --- TRASH TALK SECTION ---
-        st.subheader("💬 League Trash Talk Feed")
-        
-        with st.form("trash_talk_form"):
-            chat_msg = st.text_input("Post a message to the league...", key="chat_input")
-            post_chat = st.form_submit_button("Post Message 💬")
-            
-            if post_chat and chat_msg.strip():
-                try:
-                    supabase.table("trash_talk").insert({
-                        "user_id": user_id,
-                        "message": chat_msg.strip()
-                    }).execute()
-                    st.success("Message posted!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error posting message: {e}")
-
-        recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").order("created_at", desc=True).limit(10).execute().data
-        all_profiles_chat = get_cached_profiles()
-        profile_map_chat = {p["id"]: p for p in all_profiles_chat}
-
-        if recent_chats:
-            for c in recent_chats:
-                p_info = profile_map_chat.get(c["user_id"], {})
-                author_name = p_info.get("full_name", "Player")
-                author_av = p_info.get("avatar_emoji", "🏈")
-                author_team = p_info.get("favorite_team", "🏈 Free Agent / Neutral")
-                t_info = NFL_TEAM_DATA.get(author_team, NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
-                
-                st.markdown(f"""
-                <div class="chat-bubble" style="border-left: 5px solid {t_info['color']} !important;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <img src="{t_info['logo']}" style="width:24px; height:24px;" />
-                        <b>{author_av} {author_name}</b> <small style="opacity:0.7;">({author_team})</small>
-                    </div>
-                    <div style="margin-top:4px;">{c['message']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.divider()
 
         # --- HEAD-TO-HEAD COMPARISON SECTION ---
         if selected_league_filter_id != "GLOBAL":
@@ -2552,9 +2510,9 @@ else:
 
             st.divider()
 
-            # --- PAST SEASON ARCHIVES ---
+            # --- PAST SEASON ARCHIVES (NAMED AFTER THE SELECTED MINI-LEAGUE) ---
             league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "")
-            with st.expander(f"🏛️ Custom League Season Archives ({league_clean_name})", expanded=False):
+            with st.expander(f"🏛️ {league_clean_name} Archives", expanded=False):
                 archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
 
                 champ_display_custom = f"{filtered_player_stats[0]['full_name']} ({filtered_player_stats[0]['tokens']} 🪙)" if filtered_player_stats else "TBD"
@@ -2572,6 +2530,61 @@ else:
                 st.dataframe(pd.DataFrame(data_custom), use_container_width=True, hide_index=True)
 
             st.divider()
+
+        # --- LEAGUE-SPECIFIC TRASH TALK FEED (NOW PLACED AFTER ARCHIVES & SCOPED TO SELECTED LEAGUE) ---
+        if selected_league_filter_id == "GLOBAL":
+            st.subheader("💬 Global Trash Talk Feed")
+            chat_target_id = "GLOBAL"
+        elif selected_league_filter_id == "00000000-0000-0000-0000-000000000001":
+            st.subheader("💬 Main League Trash Talk Feed")
+            chat_target_id = "00000000-0000-0000-0000-000000000001"
+        else:
+            league_clean_name = selected_league_filter_label.replace("🛡️ ", "")
+            st.subheader(f"💬 {league_clean_name} Trash Talk Feed")
+            chat_target_id = selected_league_filter_id
+
+        with st.form(f"trash_talk_form_{selected_league_filter_id}"):
+            chat_msg = st.text_input("Post a message to this league...", key=f"chat_input_{selected_league_filter_id}")
+            post_chat = st.form_submit_button("Post Message 💬")
+            
+            if post_chat and chat_msg.strip():
+                try:
+                    supabase.table("trash_talk").insert({
+                        "user_id": user_id,
+                        "message": chat_msg.strip(),
+                        "league_id": chat_target_id
+                    }).execute()
+                    st.success("Message posted!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error posting message: {e}")
+
+        # Fetch messages scoped specifically to this selected league id
+        recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").eq("league_id", chat_target_id).order("created_at", desc=True).limit(10).execute().data
+        all_profiles_chat = get_cached_profiles()
+        profile_map_chat = {p["id"]: p for p in all_profiles_chat}
+
+        if recent_chats:
+            for c in recent_chats:
+                p_info = profile_map_chat.get(c["user_id"], {})
+                author_name = p_info.get("full_name", "Player")
+                author_av = p_info.get("avatar_emoji", "🏈")
+                author_team = p_info.get("favorite_team", "🏈 Free Agent / Neutral")
+                t_info = NFL_TEAM_DATA.get(author_team, NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
+                
+                st.markdown(f"""
+                <div class="chat-bubble" style="border-left: 5px solid {t_info['color']} !important;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <img src="{t_info['logo']}" style="width:24px; height:24px;" />
+                        <b>{author_av} {author_name}</b> <small style="opacity:0.7;">({author_team})</small>
+                    </div>
+                    <div style="margin-top:4px;">{c['message']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No messages in this league feed yet. Be the first to start the trash talk!")
+
+        st.divider()
 
         # --- CREATE OR JOIN CUSTOM LEAGUES & COMMISSIONER MANAGEMENT ---
         st.subheader("🛠️ Create or Join Custom Leagues & Commissioner Management")
@@ -3292,7 +3305,7 @@ Good luck this week! 🔥"""
                     signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 997).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 997,
+                        "week_number", 997,
                         "question_number": 1,
                         "question_text": "SIGNUP ACCESS LOCK",
                         "winning_answer": signup_status
