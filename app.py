@@ -2708,11 +2708,12 @@ else:
                     league_s_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
 
         curr_def_s = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
-        def_s_label = next((k for k, v in league_s_options.items() if v == curr_def_s), list(league_s_options.keys()[0] if league_s_options else "🏆 Global Leaderboard"))
-        s_index = list(league_s_options.keys()).index(def_s_label) if def_s_label in league_s_options else 0
+        default_keys_list = list(league_s_options.keys())
+        def_s_label = next((k for k, v in league_s_options.items() if v == curr_def_s), default_keys_list[0] if default_keys_list else "🏆 Global Leaderboard")
+        s_index = default_keys_list.index(def_s_label) if def_s_label in default_keys_list else 0
 
         with st.form("settings_leaderboard_form"):
-            new_def_league_label = st.selectbox("Default Leaderboard on Leagues Tab", list(league_s_options.keys()), index=s_index)
+            new_def_league_label = st.selectbox("Default Leaderboard on Leagues Tab", default_keys_list, index=s_index)
             new_def_league_id = league_s_options[new_def_league_label]
             
             save_def_league = st.form_submit_button("Save Leaderboard Preference 💾", type="primary")
