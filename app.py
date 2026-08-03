@@ -296,25 +296,13 @@ st.markdown(f"""
     }}
 
     .nfl-header {{ text-align: center; padding: 12px 0 8px 0; }}
-    .nfl-title {{
-        font-family: 'Bebas Neue', cursive, sans-serif !important;
-        font-size: 76px !important;
-        letter-spacing: 6px;
-        text-transform: uppercase;
-        background: linear-gradient(180deg, #ffffff 15%, {user_team_color} 65%, #d97706 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0px 6px 30px {user_team_color}99;
-        margin: 0;
-        line-height: 1.0;
-    }}
     .nfl-subtitle {{
         font-family: 'Teko', sans-serif;
         font-size: 26px;
         letter-spacing: 5px;
         color: #93c5fd;
         text-transform: uppercase;
-        margin-top: -2px;
+        margin-top: 4px;
         text-shadow: 0 2px 10px rgba(0,0,0,0.8);
     }}
     .header-logo {{
@@ -680,7 +668,6 @@ with col_top_btn:
 st.markdown(f"""
     <div class="nfl-header">
         <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" class="header-logo" alt="Touchdown Tokens Logo" />
-        <h1 class="nfl-title">TOUCHDOWN TOKENS</h1>
         <div class="nfl-subtitle">Weekly NFL Predictions & Wagers</div>
     </div>
 """, unsafe_allow_html=True)
@@ -3215,7 +3202,7 @@ Good luck this week! 🔥"""
                     signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 997).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 997,
+                        "week_number", 997,
                         "question_number": 1,
                         "question_text": "SIGNUP ACCESS LOCK",
                         "winning_answer": signup_status
