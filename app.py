@@ -1121,6 +1121,10 @@ else:
 
     sync_and_get_user_badges(user_id, check_celebration=True)
 
+    # --- CHECK IF USER IS A COMMISSIONER OF ANY MINI-LEAGUE ---
+    my_administered_leagues = supabase.table("leagues").select("id, league_name, invite_code, league_password").eq("created_by", user_id).execute().data
+    is_any_league_admin = bool(my_administered_leagues) or profile.get("is_admin", False)
+
     # --- SIDEBAR ---
     st.sidebar.markdown(f"""
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; padding: 6px 0;">
@@ -1164,7 +1168,9 @@ else:
     st.sidebar.metric(label="Available Tokens", value=f"{active_tokens_display} 🪙", help="Total True Global Tokens minus active wagers placed for the upcoming week.")
     
     if profile.get("is_admin"):
-        st.sidebar.success("👑 Admin Mode Active")
+        st.sidebar.success("👑 System Admin Active")
+    elif is_any_league_admin:
+        st.sidebar.info("⭐ League Commissioner Active")
         
     st.sidebar.divider()
     if st.sidebar.button("Log Out"):
@@ -1199,9 +1205,18 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    if profile.get("is_admin"):
+    # Dynamic tabs configuration based on admin/commissioner privileges
+    if profile.get("is_admin") and is_any_league_admin:
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin, tab_admin = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⭐ League Admin", "⚙️ Admin Control"]
+        )
+    elif profile.get("is_admin"):
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_admin = st.tabs(
             ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⚙️ Admin Control"]
+        )
+    elif is_any_league_admin:
+        tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues, tab_league_admin = st.tabs(
+            ["🏠 Home", "👤 Profile", "📖 Rules & Info", "🎯 Place Bets", "📜 My History", "🛡️ Leagues", "⭐ League Admin"]
         )
     else:
         tab_home, tab_profile, tab_rules, tab_bet, tab_history, tab_leagues = st.tabs(
@@ -2504,13 +2519,13 @@ else:
 
         st.divider()
 
-        # --- CREATE OR JOIN CUSTOM LEAGUES & COMMISSIONER MANAGEMENT ---
-        st.subheader("🛠️ Create or Join Custom Leagues & Commissioner Management")
+        # --- CREATE OR JOIN CUSTOM LEAGUES ---
+        st.subheader("➕ Create or Join Custom Leagues")
         
         col_create, col_join = st.columns(2)
 
         with col_create:
-            st.markdown("#### ➕ Create a League")
+            st.markdown("#### Create a League")
             with st.form("create_league_form"):
                 new_league_name = st.text_input("League Name", placeholder="e.g., Office Chumps")
                 new_league_pwd = st.text_input("League Password / Passcode (Optional)", type="password", placeholder="Secure access code")
@@ -2542,7 +2557,7 @@ else:
                             st.error(f"Error creating league: {e}")
 
         with col_join:
-            st.markdown("#### 🔗 Join a League")
+            st.markdown("#### Join a League")
             with st.form("join_league_form"):
                 code_input = st.text_input("Enter 6-Character Invite Code", placeholder="e.g., A7X9P2")
                 pwd_input = st.text_input("League Password (if required)", type="password", placeholder="Enter password")
@@ -2576,138 +2591,178 @@ else:
                                     st.rerun()
 
         st.write("")
-        st.markdown("#### 📋 Your Mini-Leagues & Commissioner Controls")
+        st.markdown("#### 📋 Your Joined Mini-Leagues")
         
         if mini_leagues:
             for mem in mini_leagues:
                 league_info = mem.get("leagues")
                 if league_info:
-                    l_id = league_info["id"]
                     l_name = league_info["league_name"]
                     l_code = league_info["invite_code"]
                     l_creator = league_info["created_by"]
-                    is_commissioner = (l_creator == user_id) or profile.get("is_admin", False)
+                    is_commissioner_here = (l_creator == user_id) or profile.get("is_admin", False)
                     
-                    members_res = supabase.table("league_members").select("user_id, profiles(full_name, tokens, favorite_team)").eq("league_id", l_id).execute().data
+                    members_res = supabase.table("league_members").select("user_id").eq("league_id", league_info["id"]).execute().data
                     member_count = len(members_res) if members_res else 0
                     
                     st.markdown(f"""
                         <div class="summary-box">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <h3 style="margin: 0; color: #ffffff;">🛡️ {l_name} { '⭐ (Commissioner)' if is_commissioner else '' }</h3>
+                                    <h3 style="margin: 0; color: #ffffff;">🛡️ {l_name} { '⭐ (You are Commissioner)' if is_commissioner_here else '' }</h3>
                                     <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Invite Code: <b style="color: #38bdf8; letter-spacing: 1px;">{l_code}</b> | Members: <b>{member_count}</b></p>
                                 </div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
 
-                    if is_commissioner:
-                        with st.expander(f"⚙️ Manage League: {l_name}"):
-                            st.markdown("#### 📝 League Settings & Security")
-                            with st.form(f"league_settings_form_{l_id}"):
-                                new_l_name = st.text_input("League Name", value=l_name, key=f"rename_l_{l_id}")
-                                new_l_pwd = st.text_input("League Password / Passcode (Leave blank for public)", type="password", key=f"pwd_l_{l_id}", placeholder="New league password")
-                                
-                                save_settings_btn = st.form_submit_button("Save League Settings 💾", type="primary")
-                                if save_settings_btn:
-                                    if not new_l_name.strip():
-                                        st.error("League name cannot be blank.")
-                                    else:
-                                        supabase.table("leagues").update({
-                                            "league_name": new_l_name.strip(),
-                                            "league_password": new_l_pwd.strip() if new_l_pwd else ""
-                                        }).eq("id", l_id).execute()
-                                        st.success("League settings updated successfully!")
-                                        st.rerun()
+    # ------------------------------------------
+    # TAB: LEAGUE ADMIN (ONLY FOR LEAGUE ADMINS)
+    # ------------------------------------------
+    if is_any_league_admin:
+        with tab_league_admin:
+            st.markdown("## ⭐ League Commissioner Administration")
+            st.caption("Manage your mini-leagues, update settings, adjust member token balances, regenerate invite codes, and handle member rosters.")
+            st.write("")
 
-                            st.markdown("---")
-                            st.markdown("#### 👥 Roster & Member Management")
-                            if members_res:
-                                member_names_map = {m.get("profiles", {}).get("full_name", "Unknown Player"): m["user_id"] for m in members_res if m.get("profiles") and m["user_id"] != user_id}
-                                
-                                if member_names_map:
-                                    with st.form(f"kick_member_form_{l_id}"):
-                                        target_kick_name = st.selectbox("Select Member to Kick / Remove", list(member_names_map.keys()), key=f"kick_sel_{l_id}")
-                                        confirm_kick = st.checkbox(f"I confirm I want to remove {target_kick_name} from {l_name}", key=f"confirm_k_{l_id}")
-                                        
-                                        submit_kick = st.form_submit_button("Remove Member from League 🚪", type="secondary")
-                                        if submit_kick:
-                                            if not confirm_kick:
-                                                st.warning(f"Please check the confirmation box to remove {target_kick_name}.")
-                                            else:
-                                                t_kick_uid = member_names_map[target_kick_name]
-                                                supabase.table("league_members").delete().eq("league_id", l_id).eq("user_id", t_kick_uid).execute()
-                                                st.success(f"Successfully removed {target_kick_name} from {l_name}.")
-                                                st.rerun()
-                                else:
-                                    st.info("No other members in this league to remove.")
+            # Filter administered leagues
+            admin_leagues_list = []
+            if profile.get("is_admin"):
+                # System admin can manage all custom mini-leagues
+                all_custom_leagues = supabase.table("leagues").select("id, league_name, invite_code, league_password, created_by").neq("id", "00000000-0000-0000-0000-000000000001").execute().data
+                admin_leagues_list = all_custom_leagues if all_custom_leagues else []
+            else:
+                admin_leagues_list = my_administered_leagues
 
-                            st.markdown("---")
-                            st.markdown("#### 🛠️ Commissioner Actions")
+            if not admin_leagues_list:
+                st.info("You are not currently designated as a commissioner for any custom mini-leagues.")
+            else:
+                league_options_map = {l["league_name"]: l for l in admin_leagues_list}
+                selected_admin_league_name = st.selectbox("Select Mini-League to Administer", list(league_options_map.keys()), key="league_admin_selector")
+                selected_league = league_options_map[selected_admin_league_name]
+                l_id = selected_league["id"]
+                l_name = selected_league["league_name"]
+                l_code = selected_league["invite_code"]
+
+                st.write("")
+
+                # Fetch members for this specific league
+                members_res = supabase.table("league_members").select("user_id, profiles(full_name, tokens, favorite_team)").eq("league_id", l_id).execute().data
+                member_count = len(members_res) if members_res else 0
+
+                # Top League Summary Metrics
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    st.metric("League Name", l_name)
+                with col_m2:
+                    st.metric("Invite Code", l_code)
+                with col_m3:
+                    st.metric("Total Members", str(member_count))
+
+                st.write("")
+
+                # Redesigned Commissioner Action Expander Cards / Sections
+                with st.expander("📝 1. League Settings & Security", expanded=True):
+                    with st.form(f"redesigned_league_settings_{l_id}"):
+                        new_l_name = st.text_input("League Name", value=l_name)
+                        new_l_pwd = st.text_input("League Password / Passcode (Leave blank for public)", type="password", placeholder="Secure access code")
+                        
+                        save_settings_btn = st.form_submit_button("Save League Settings 💾", type="primary")
+                        if save_settings_btn:
+                            if not new_l_name.strip():
+                                st.error("League name cannot be blank.")
+                            else:
+                                supabase.table("leagues").update({
+                                    "league_name": new_l_name.strip(),
+                                    "league_password": new_l_pwd.strip() if new_l_pwd else ""
+                                }).eq("id", l_id).execute()
+                                st.success("League settings updated successfully!")
+                                st.rerun()
+
+                with st.expander("🪙 2. Member Token Balances & Adjustments", expanded=False):
+                    st.caption("Add, subtract, or set exact token balances for members in this league.")
+                    if members_res:
+                        with st.form(f"redesigned_token_adj_{l_id}"):
+                            all_m_map = {m.get("profiles", {}).get("full_name", "Unknown"): m["user_id"] for m in members_res if m.get("profiles")}
+                            target_member_name = st.selectbox("Select Member", list(all_m_map.keys()))
+                            token_adj_mode = st.selectbox("Operation", ["Add Tokens", "Subtract Tokens", "Set Exact Balance"])
+                            token_adj_val = st.number_input("Token Amount", min_value=0, value=5, step=1)
                             
-                            col_comm_opt1, col_comm_opt2 = st.columns(2)
-                            with col_comm_opt1:
-                                comm_action = st.selectbox("Select Action", ["Adjust Member Tokens", "Regenerate Invite Code", "Transfer Ownership"], key=f"comm_action_{l_id}")
-                            with col_comm_opt2:
-                                pass
-
-                            if comm_action == "Adjust Member Tokens":
-                                with st.form(f"comm_adjust_tokens_{l_id}"):
-                                    all_m_map = {m.get("profiles", {}).get("full_name", "Unknown"): m["user_id"] for m in members_res if m.get("profiles")}
-                                    target_member_name = st.selectbox("Select Member", list(all_m_map.keys()), key=f"comm_mem_sel_{l_id}")
-                                    token_adj_mode = st.selectbox("Operation", ["Add Tokens", "Subtract Tokens", "Set Exact Balance"], key=f"comm_op_{l_id}")
-                                    token_adj_val = st.number_input("Token Amount", min_value=0, value=5, step=1, key=f"comm_val_{l_id}")
+                            submit_comm_adjust = st.form_submit_button("Apply Token Adjustment 🪙", type="primary")
+                            if submit_comm_adjust:
+                                t_uid = all_m_map[target_member_name]
+                                curr_user_prof = supabase.table("profiles").select("tokens").eq("id", t_uid).single().execute().data
+                                curr_toks = curr_user_prof.get("tokens", 10) if curr_user_prof else 10
+                                
+                                if token_adj_mode == "Add Tokens":
+                                    new_toks = curr_toks + token_adj_val
+                                elif token_adj_mode == "Subtract Tokens":
+                                    new_toks = max(0, curr_toks - token_adj_val)
+                                else:
+                                    new_toks = token_adj_val
                                     
-                                    submit_comm_adjust = st.form_submit_button("Apply Token Adjustment 🪙")
-                                    if submit_comm_adjust:
-                                        t_uid = all_m_map[target_member_name]
-                                        curr_user_prof = supabase.table("profiles").select("tokens").eq("id", t_uid).single().execute().data
-                                        curr_toks = curr_user_prof.get("tokens", 10) if curr_user_prof else 10
-                                        
-                                        if token_adj_mode == "Add Tokens":
-                                            new_toks = curr_toks + token_adj_val
-                                        elif token_adj_mode == "Subtract Tokens":
-                                            new_toks = max(0, curr_toks - token_adj_val)
-                                        else:
-                                            new_toks = token_adj_val
-                                            
-                                        supabase.table("profiles").update({"tokens": new_toks}).eq("id", t_uid).execute()
-                                        st.success(f"Successfully updated {target_member_name}'s balance to {new_toks} tokens!")
-                                        st.rerun()
+                                supabase.table("profiles").update({"tokens": new_toks}).eq("id", t_uid).execute()
+                                st.success(f"Successfully updated {target_member_name}'s balance to {new_toks} tokens!")
+                                st.rerun()
+                    else:
+                        st.info("No members in this league.")
 
-                            elif comm_action == "Regenerate Invite Code":
-                                with st.form(f"comm_regen_code_{l_id}"):
-                                    st.caption("Generate a brand new 6-character invite code for this league, invalidating the old one.")
-                                    submit_regen = st.form_submit_button("Generate New Invite Code 🔑")
-                                    if submit_regen:
-                                        import random as r_m, string as s_m
-                                        new_code = ''.join(r_m.choices(s_m.ascii_uppercase + s_m.digits, k=6))
-                                        supabase.table("leagues").update({"invite_code": new_code}).eq("id", l_id).execute()
-                                        st.success(f"New invite code generated successfully: **{new_code}**")
-                                        st.rerun()
-
-                            elif comm_action == "Transfer Ownership":
-                                with st.form(f"comm_transfer_{l_id}"):
-                                    other_member_names = {m.get("profiles", {}).get("full_name", "Unknown"): m["user_id"] for m in members_res if m.get("profiles") and m["user_id"] != user_id}
-                                    if not other_member_names:
-                                        st.info("No other members in this league to transfer ownership to.")
+                with st.expander("👥 3. Roster & Member Removal", expanded=False):
+                    st.caption("Remove players from your league roster if necessary.")
+                    if members_res:
+                        member_names_map = {m.get("profiles", {}).get("full_name", "Unknown Player"): m["user_id"] for m in members_res if m.get("profiles") and m["user_id"] != user_id}
+                        
+                        if member_names_map:
+                            with st.form(f"redesigned_kick_form_{l_id}"):
+                                target_kick_name = st.selectbox("Select Member to Kick / Remove", list(member_names_map.keys()))
+                                confirm_kick = st.checkbox(f"I confirm I want to remove {target_kick_name} from {l_name}")
+                                
+                                submit_kick = st.form_submit_button("Remove Member from League 🚪", type="secondary")
+                                if submit_kick:
+                                    if not confirm_kick:
+                                        st.warning(f"Please check the confirmation box to remove {target_kick_name}.")
                                     else:
-                                        new_owner_name = st.selectbox("Select New Commissioner", list(other_member_names.keys()), key=f"comm_new_owner_{l_id}")
-                                        submit_transfer = st.form_submit_button("Transfer League Ownership 👑")
-                                        if submit_transfer:
-                                            new_owner_id = other_member_names[new_owner_name]
-                                            supabase.table("leagues").update({"created_by": new_owner_id}).eq("id", l_id).execute()
-                                            st.success(f"Successfully transferred commissioner ownership of {l_name} to {new_owner_name}!")
-                                            st.rerun()
-                    st.write("")
+                                        t_kick_uid = member_names_map[target_kick_name]
+                                        supabase.table("league_members").delete().eq("league_id", l_id).eq("user_id", t_kick_uid).execute()
+                                        st.success(f"Successfully removed {target_kick_name} from {l_name}.")
+                                        st.rerun()
+                        else:
+                            st.info("No other members in this league to remove.")
+
+                with st.expander("🔑 4. Invite Code & Ownership Tools", expanded=False):
+                    col_tc1, col_tc2 = st.columns(2)
+                    with col_tc1:
+                        st.markdown("##### Regenerate Invite Code")
+                        st.caption("Generate a brand new 6-character code, invalidating the old one.")
+                        if st.button("Generate New Invite Code 🔑", key=f"btn_regen_{l_id}"):
+                            import random as r_m, string as s_m
+                            new_code = ''.join(r_m.choices(s_m.ascii_uppercase + s_m.digits, k=6))
+                            supabase.table("leagues").update({"invite_code": new_code}).eq("id", l_id).execute()
+                            st.success(f"New invite code generated: **{new_code}**")
+                            st.rerun()
+
+                    with col_tc2:
+                        st.markdown("##### Transfer Ownership")
+                        st.caption("Transfer commissioner rights to another member.")
+                        other_member_names = {m.get("profiles", {}).get("full_name", "Unknown"): m["user_id"] for m in members_res if m.get("profiles") and m["user_id"] != user_id}
+                        if other_member_names:
+                            with st.form(f"redesigned_transfer_{l_id}"):
+                                new_owner_name = st.selectbox("Select New Commissioner", list(other_member_names.keys()))
+                                submit_transfer = st.form_submit_button("Transfer Ownership 👑")
+                                if submit_transfer:
+                                    new_owner_id = other_member_names[new_owner_name]
+                                    supabase.table("leagues").update({"created_by": new_owner_id}).eq("id", l_id).execute()
+                                    st.success(f"Successfully transferred commissioner ownership to {new_owner_name}!")
+                                    st.rerun()
+                        else:
+                            st.info("No other members available for transfer.")
 
     # ------------------------------------------
-    # TAB 6: ADMIN CONTROL
+    # TAB: SYSTEM ADMIN CONTROL
     # ------------------------------------------
     if profile.get("is_admin"):
         with tab_admin:
-            st.header("⚙️ Admin Management Portal")
+            st.header("⚙️ System Admin Management Portal")
             
             admin_sec = st.radio("Select Action", ["Manage Questions", "Auto-Lockout Scheduler", "Grade Week & Calculate Points", "Bulk Token Adjuster", "Export League Data (CSV)", "League Chat Announcement", "Archive & Reset Season", "Season Champion Banner", "App Access Control"], horizontal=True)
             
