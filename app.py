@@ -2279,7 +2279,7 @@ else:
     # ------------------------------------------
     with tab_leagues:
         st.header("🛡️ Standings, Leagues & Commissioner Hub")
-        st.caption("Switch seamlessly between your custom mini-leagues and the main league using the dropdown menu below.")
+        st.caption("Switch seamlessly between the Global League and your custom mini-leagues using the dropdown menu below.")
         st.write("")
 
         # Fetch all memberships including the main league
@@ -2290,96 +2290,17 @@ else:
         custom_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
         main_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
 
-        # Build dropdown options (Global option completely removed)
+        # Build dropdown options (Global Leaderboard included, no global trash talk)
         league_filter_options = {}
+        if main_league_item:
+            l_obj = main_league_item.get("leagues")
+            if l_obj:
+                league_filter_options[f"🏆 {l_obj['league_name']} (Global)"] = l_obj["id"]
+
         for m_item in custom_leagues:
             l_obj = m_item.get("leagues")
             if l_obj:
                 league_filter_options[f"🛡️ {l_obj['league_name']}"] = l_obj["id"]
-
-        if main_league_item:
-            l_obj = main_league_item.get("leagues")
-            if l_obj:
-                league_filter_options[f"🏆 {l_obj['league_name']}"] = l_obj["id"]
-
-        # --- TOP CREATE/JOIN BANNER (ONLY SHOWS IF NOT IN ANY CUSTOM LEAGUE) ---
-        if not custom_leagues:
-            st.markdown("""
-                <div class="summary-box" style="border-left-color: #fbbf24 !important; text-align: center; padding: 24px; margin-bottom: 25px;">
-                    <h3 style="margin-top:0; color:#fff;">You aren't part of any custom mini-leagues yet!</h3>
-                    <p style="color:#cbd5e1; font-size:16px;">Create your own mini-league or join an existing one using an invite code below to unlock head-to-head rivalries and group standings.</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            st.subheader("🛠️ Create or Join Custom Leagues")
-            col_create, col_join = st.columns(2)
-
-            with col_create:
-                st.markdown("#### ➕ Create a League")
-                with st.form("create_league_form_empty"):
-                    new_league_name = st.text_input("League Name", placeholder="e.g., Office Chumps")
-                    new_league_pwd = st.text_input("League Password / Passcode (Optional)", type="password", placeholder="Secure access code")
-                    submit_create_league = st.form_submit_button("Create League 🚀", type="primary")
-
-                    if submit_create_league:
-                        if not new_league_name.strip():
-                            st.error("Please enter a valid league name.")
-                        else:
-                            import random as r_mod, string as s_mod
-                            invite_code = ''.join(r_mod.choices(s_mod.ascii_uppercase + s_mod.digits, k=6))
-                            try:
-                                res_l = supabase.table("leagues").insert({
-                                    "league_name": new_league_name.strip(),
-                                    "invite_code": invite_code,
-                                    "created_by": user_id,
-                                    "league_password": new_league_pwd.strip() if new_league_pwd else ""
-                                }).execute()
-                                
-                                if res_l.data:
-                                    new_league_id = res_l.data[0]["id"]
-                                    supabase.table("league_members").insert({
-                                        "league_id": new_league_id,
-                                        "user_id": user_id
-                                    }).execute()
-                                    st.success(f"League '{new_league_name}' created successfully! Invite Code: **{invite_code}**")
-                                    st.rerun()
-                            except Exception as e:
-                                st.error(f"Error creating league: {e}")
-
-            with col_join:
-                st.markdown("#### 🔗 Join a League")
-                with st.form("join_league_form_empty"):
-                    code_input = st.text_input("Enter 6-Character Invite Code", placeholder="e.g., A7X9P2")
-                    pwd_input = st.text_input("League Password (if required)", type="password", placeholder="Enter password")
-                    submit_join_league = st.form_submit_button("Join League 🤝", type="primary")
-
-                    if submit_join_league:
-                        clean_code = code_input.strip().upper()
-                        if not clean_code:
-                            st.warning("Please enter an invite code.")
-                        else:
-                            found_league = supabase.table("leagues").select("id, league_name, league_password").eq("invite_code", clean_code).execute().data
-                            if not found_league:
-                                st.error("Invalid invite code. Please check with your league commissioner.")
-                            else:
-                                target_league = found_league[0]
-                                target_league_id = target_league["id"]
-                                stored_pwd = target_league.get("league_password", "")
-                                
-                                if stored_pwd and stored_pwd != pwd_input.strip():
-                                    st.error("Incorrect league password. Please check with the commissioner.")
-                                else:
-                                    existing_member = supabase.table("league_members").select("id").eq("league_id", target_league_id).eq("user_id", user_id).execute().data
-                                    if existing_member:
-                                        st.warning(f"You are already a member of '{target_league['league_name']}'!")
-                                    else:
-                                        supabase.table("league_members").insert({
-                                            "league_id": target_league_id,
-                                            "user_id": user_id
-                                        }).execute()
-                                        st.success(f"Successfully joined '{target_league['league_name']}'!")
-                                        st.rerun()
-            st.divider()
 
         if league_filter_options:
             # Dropdown selector
@@ -2391,13 +2312,15 @@ else:
             # --- RENDER LEADERBOARD BASED ON SELECTION ---
             is_main_league = (selected_league_filter_id == "00000000-0000-0000-0000-000000000001")
             icon_prefix = "🏆" if is_main_league else "🛡️"
-            st.subheader(f"{icon_prefix} {selected_league_filter_label.replace('🛡️ ', '').replace('🏆 ', '')} Standings")
+            st.subheader(f"{icon_prefix} {selected_league_filter_label.replace('🛡️ ', '').replace('🏆 ', '').replace(' (Global)', '')} Standings")
             
-            custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
-            allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
-            
-            player_stats = get_cached_leaderboard_stats()
-            filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
+            if is_main_league:
+                filtered_player_stats = get_cached_leaderboard_stats()
+            else:
+                custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
+                allowed_user_ids = {cm["user_id"] for cm in custom_league_members} if custom_league_members else set()
+                player_stats = get_cached_leaderboard_stats()
+                filtered_player_stats = [p for p in player_stats if p["id"] in allowed_user_ids]
 
             if not filtered_player_stats:
                 st.info("No players found in this standings view yet.")
@@ -2504,8 +2427,8 @@ else:
 
                 st.divider()
 
-            # --- PAST SEASON ARCHIVES (NAMED AFTER THE SELECTED LEAGUE + ARCHIVES) ---
-            league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "")
+            # --- PAST SEASON ARCHIVES ---
+            league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "").replace(" (Global)", "")
             with st.expander(f"🏛️ {league_clean_name} Archives", expanded=False):
                 archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
 
@@ -2525,55 +2448,51 @@ else:
 
             st.divider()
 
-            # --- LEAGUE-SPECIFIC TRASH TALK FEED (NOW PLACED BELOW ARCHIVES & SCOPED EXCLUSIVELY TO THE SELECTED LEAGUE) ---
-            if is_main_league:
-                st.subheader("💬 Main League Trash Talk Feed")
-                chat_target_id = "00000000-0000-0000-0000-000000000001"
-            else:
-                league_clean_name = selected_league_filter_label.replace("🛡️ ", "")
-                st.subheader(f"💬 {league_clean_name} Trash Talk Feed")
+            # --- LEAGUE-SPECIFIC TRASH TALK FEED (ONLY SHOWN FOR CUSTOM MINI-LEAGUES, REMOVED FOR GLOBAL LEAGUE) ---
+            if not is_main_league:
                 chat_target_id = selected_league_filter_id
+                st.subheader(f"💬 {league_clean_name} Trash Talk Feed")
 
-            with st.form(f"trash_talk_form_{selected_league_filter_id}"):
-                chat_msg = st.text_input("Post a message to this league...", key=f"chat_input_{selected_league_filter_id}")
-                post_chat = st.form_submit_button("Post Message 💬")
-                
-                if post_chat and chat_msg.strip():
-                    try:
-                        supabase.table("trash_talk").insert({
-                            "user_id": user_id,
-                            "message": chat_msg.strip(),
-                            "league_id": chat_target_id
-                        }).execute()
-                        st.success("Message posted!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error posting message: {e}")
-
-            # Fetch messages scoped specifically to this selected league id
-            recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").eq("league_id", chat_target_id).order("created_at", desc=True).limit(10).execute().data
-            all_profiles_chat = get_cached_profiles()
-            profile_map_chat = {p["id"]: p for p in all_profiles_chat}
-
-            if recent_chats:
-                for c in recent_chats:
-                    p_info = profile_map_chat.get(c["user_id"], {})
-                    author_name = p_info.get("full_name", "Player")
-                    author_av = p_info.get("avatar_emoji", "🏈")
-                    author_team = p_info.get("favorite_team", "🏈 Free Agent / Neutral")
-                    t_info = NFL_TEAM_DATA.get(author_team, NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
+                with st.form(f"trash_talk_form_{selected_league_filter_id}"):
+                    chat_msg = st.text_input("Post a message to this league...", key=f"chat_input_{selected_league_filter_id}")
+                    post_chat = st.form_submit_button("Post Message 💬")
                     
-                    st.markdown(f"""
-                    <div class="chat-bubble" style="border-left: 5px solid {t_info['color']} !important;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <img src="{t_info['logo']}" style="width:24px; height:24px;" />
-                            <b>{author_av} {author_name}</b> <small style="opacity:0.7;">({author_team})</small>
+                    if post_chat and chat_msg.strip():
+                        try:
+                            supabase.table("trash_talk").insert({
+                                "user_id": user_id,
+                                "message": chat_msg.strip(),
+                                "league_id": chat_target_id
+                            }).execute()
+                            st.success("Message posted!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error posting message: {e}")
+
+                # Fetch messages scoped specifically to this custom mini-league id
+                recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").eq("league_id", chat_target_id).order("created_at", desc=True).limit(10).execute().data
+                all_profiles_chat = get_cached_profiles()
+                profile_map_chat = {p["id"]: p for p in all_profiles_chat}
+
+                if recent_chats:
+                    for c in recent_chats:
+                        p_info = profile_map_chat.get(c["user_id"], {})
+                        author_name = p_info.get("full_name", "Player")
+                        author_av = p_info.get("avatar_emoji", "🏈")
+                        author_team = p_info.get("favorite_team", "🏈 Free Agent / Neutral")
+                        t_info = NFL_TEAM_DATA.get(author_team, NFL_TEAM_DATA["🏈 Free Agent / Neutral"])
+                        
+                        st.markdown(f"""
+                        <div class="chat-bubble" style="border-left: 5px solid {t_info['color']} !important;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <img src="{t_info['logo']}" style="width:24px; height:24px;" />
+                                <b>{author_av} {author_name}</b> <small style="opacity:0.7;">({author_team})</small>
+                            </div>
+                            <div style="margin-top:4px;">{c['message']}</div>
                         </div>
-                        <div style="margin-top:4px;">{c['message']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No messages in this league feed yet. Be the first to start the trash talk!")
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("No messages in this league feed yet. Be the first to start the trash talk!")
 
         st.divider()
 
