@@ -55,7 +55,7 @@ if "form_refresh" not in st.session_state:
 # --- CACHED HELPERS FOR ADMIN & PERFORMANCE ---
 @st.cache_data(ttl=30)
 def get_cached_profiles():
-    res = supabase.table("profiles").select("id, full_name, tokens, favorite_team, is_admin, avatar_emoji, avatar_border, avatar_color, selected_title, featured_badges, unlocked_badges, favorite_player, bio").execute()
+    res = supabase.table("profiles").select("id, full_name, tokens, favorite_team, is_admin, avatar_emoji, avatar_border, avatar_color, selected_title, featured_badges, unlocked_badges, favorite_player, bio, default_league_view").execute()
     return res.data if res.data else []
 
 @st.cache_data(ttl=30)
@@ -1060,7 +1060,8 @@ if st.session_state.user is None:
                                 "avatar_border": "solid",
                                 "favorite_player": "",
                                 "avatar_color": "#1e3a8a",
-                                "selected_title": "🏈 Gridiron Contender"
+                                "selected_title": "🏈 Gridiron Contender",
+                                "default_league_view": "00000000-0000-0000-0000-000000000001"
                             }).execute()
                             
                             # Automatically join Main League ("Falcons") and Global League
@@ -1105,7 +1106,8 @@ else:
                 "avatar_border": "solid",
                 "favorite_player": "",
                 "avatar_color": "#1e3a8a",
-                "selected_title": "🏈 Gridiron Contender"
+                "selected_title": "🏈 Gridiron Contender",
+                "default_league_view": "00000000-0000-0000-0000-000000000001"
             }).execute()
             
             try:
@@ -1132,7 +1134,8 @@ else:
                 "avatar_border": "solid",
                 "favorite_player": "",
                 "avatar_color": "#1e3a8a",
-                "selected_title": "🏈 Gridiron Contender"
+                "selected_title": "🏈 Gridiron Contender",
+                "default_league_view": "00000000-0000-0000-0000-000000000001"
             }
     
     user_avatar = profile.get("avatar_emoji", "🏈")
@@ -1571,7 +1574,7 @@ else:
     # ------------------------------------------
     with tab_profile:
         st.header("👤 Profile & Customization Hub")
-        st.caption("Personalize your display avatar, title nametag, border style, avatar color, favorite player, favorite team, and featured badges!")
+        st.caption("Personalize your display avatar, title nametag, border style, avatar color, favorite player, favorite team, default league view, and featured badges!")
         
         curr_team = profile.get("favorite_team", "🏈 Free Agent / Neutral")
         team_index = NFL_TEAMS.index(curr_team) if curr_team in NFL_TEAMS else 0
@@ -1584,6 +1587,23 @@ else:
             st.image(selected_team_data["logo"], width=75)
         with col_info:
             st.markdown(f"### {new_team}")
+
+        # Fetch all memberships for default league view preference
+        my_memberships_pref = supabase.table("league_members").select("league_id, leagues(id, league_name)").eq("user_id", user_id).execute().data
+        all_my_leagues_pref = [m for m in my_memberships_pref if m.get("leagues")]
+        
+        league_pref_options = {}
+        for m_item in all_my_leagues_pref:
+            l_obj = m_item.get("leagues")
+            if l_obj:
+                if l_obj["id"] == "00000000-0000-0000-0000-000000000001":
+                    league_pref_options["🏆 Global Leaderboard"] = l_obj["id"]
+                else:
+                    league_pref_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
+
+        curr_default_league = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
+        default_league_label = next((k for k, v in league_pref_options.items() if v == curr_default_league), list(league_pref_options.keys())[0] if league_pref_options else "🏆 Global Leaderboard")
+        league_pref_index = list(league_pref_options.keys()).index(default_league_label) if default_league_label in league_pref_options else 0
 
         user_badges_for_titles = sync_and_get_user_badges(user_id)
         unlocked_title_options = []
@@ -1623,6 +1643,9 @@ else:
                 curr_av_color = profile.get("avatar_color", "#1e3a8a")
                 new_av_color = st.color_picker("Avatar Box Color", value=curr_av_color)
 
+            new_default_league_label = st.selectbox("Default Leaderboard View (on Leagues Tab)", list(league_pref_options.keys()), index=league_pref_index, help="Choose which leaderboard or mini-league opens by default when you visit the Leagues tab.")
+            new_default_league_id = league_pref_options[new_default_league_label]
+
             new_fav_player = st.text_input("Favorite NFL Player", value=profile.get("favorite_player", ""))
             new_bio = st.text_input("Profile Catchphrase / Bio (max 100 chars)", value=profile.get("bio", "Ready for Kickoff!"), max_chars=100)
             
@@ -1639,6 +1662,7 @@ else:
                         "avatar_emoji": new_avatar,
                         "avatar_border": new_border,
                         "avatar_color": new_av_color,
+                        "default_league_view": new_default_league_id,
                         "favorite_player": new_fav_player.strip(),
                         "bio": new_bio.strip()
                     }).eq("id", user_id).execute()
@@ -2303,8 +2327,8 @@ else:
     # TAB 5: LEAGUES
     # ------------------------------------------
     with tab_leagues:
-        st.header("🛡️ Standings, Leagues & Commissioner Hub")
-        st.caption("Switch seamlessly between the Global Leaderboard and your mini-leagues (including the 'Falcons' mini-league) using the dropdown menu below.")
+        st.header("🏆 League Standings & Mini-Leagues")
+        st.caption("Track your standings across the Global Leaderboard and your custom mini-leagues. You can also set your preferred default view in your Profile tab.")
         st.write("")
 
         # Fetch all memberships
@@ -2328,7 +2352,12 @@ else:
                 league_filter_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
 
         if league_filter_options:
-            selected_league_filter_label = st.selectbox("Select Standings View", list(league_filter_options.keys()), key="unified_league_view_selector")
+            # Determine default index based on user's saved default_league_view preference
+            user_saved_default = profile.get("default_league_view", "00000000-0000-0000-0000-000000000001")
+            default_label = next((k for k, v in league_filter_options.items() if v == user_saved_default), list(league_filter_options.keys())[0])
+            default_dropdown_idx = list(league_filter_options.keys()).index(default_label) if default_label in league_filter_options else 0
+
+            selected_league_filter_label = st.selectbox("Select Standings View", list(league_filter_options.keys()), index=default_dropdown_idx, key="unified_league_view_selector")
             selected_league_filter_id = league_filter_options[selected_league_filter_label]
 
             st.write("")
@@ -3336,7 +3365,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 998,
+                        "week_number", 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
