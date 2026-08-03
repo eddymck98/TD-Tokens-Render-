@@ -1033,12 +1033,12 @@ if st.session_state.user is None:
                                 "selected_title": "🏈 Gridiron Contender"
                             }).execute()
                             
-                            # Automatically join Main League
+                            # Automatically join Main League ("Falcons") and Global League
                             try:
-                                supabase.table("league_members").insert({
-                                    "league_id": "00000000-0000-0000-0000-000000000001",
-                                    "user_id": new_uid
-                                }).execute()
+                                supabase.table("league_members").insert([
+                                    {"league_id": "00000000-0000-0000-0000-000000000001", "user_id": new_uid},
+                                    {"league_id": "00000000-0000-0000-0000-000000000002", "user_id": new_uid}
+                                ]).execute()
                             except Exception:
                                 pass
 
@@ -1079,10 +1079,10 @@ else:
             }).execute()
             
             try:
-                supabase.table("league_members").insert({
-                    "league_id": "00000000-0000-0000-0000-000000000001",
-                    "user_id": user_id
-                }).execute()
+                supabase.table("league_members").insert([
+                    {"league_id": "00000000-0000-0000-0000-000000000001", "user_id": user_id},
+                    {"league_id": "00000000-0000-0000-0000-000000000002", "user_id": user_id}
+                ]).execute()
             except Exception:
                 pass
 
@@ -2259,42 +2259,41 @@ else:
     # ------------------------------------------
     with tab_leagues:
         st.header("🛡️ Standings, Leagues & Commissioner Hub")
-        st.caption("Switch seamlessly between the Global League and your custom mini-leagues using the dropdown menu below.")
+        st.caption("Switch seamlessly between the Global Leaderboard and your mini-leagues (including the 'Falcons' mini-league) using the dropdown menu below.")
         st.write("")
 
-        # Fetch all memberships including the main league
+        # Fetch all memberships
         my_memberships = supabase.table("league_members").select("league_id, leagues(id, league_name, invite_code, created_by)").eq("user_id", user_id).execute().data
         all_my_leagues = [m for m in my_memberships if m.get("leagues")]
 
-        # Separate custom mini-leagues from main league
-        custom_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
-        main_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
+        # Separate Global Leaderboard from mini-leagues ("Falcons" and custom ones)
+        global_league_item = next((m for m in all_my_leagues if m["leagues"]["id"] == "00000000-0000-0000-0000-000000000001"), None)
+        mini_leagues = [m for m in all_my_leagues if m["leagues"]["id"] != "00000000-0000-0000-0000-000000000001"]
 
-        # Build dropdown options (Global Leaderboard included, no global trash talk)
+        # Build dropdown options keeping Global and Mini Leagues strictly separate
         league_filter_options = {}
-        if main_league_item:
-            l_obj = main_league_item.get("leagues")
+        if global_league_item:
+            l_obj = global_league_item.get("leagues")
             if l_obj:
-                league_filter_options[f"🏆 {l_obj['league_name']} (Global)"] = l_obj["id"]
+                league_filter_options["🏆 Global Leaderboard"] = l_obj["id"]
 
-        for m_item in custom_leagues:
+        for m_item in mini_leagues:
             l_obj = m_item.get("leagues")
             if l_obj:
-                league_filter_options[f"🛡️ {l_obj['league_name']}"] = l_obj["id"]
+                league_filter_options[f"🛡️ {l_obj['league_name']} (Mini-League)"] = l_obj["id"]
 
         if league_filter_options:
-            # Dropdown selector
             selected_league_filter_label = st.selectbox("Select Standings View", list(league_filter_options.keys()), key="unified_league_view_selector")
             selected_league_filter_id = league_filter_options[selected_league_filter_label]
 
             st.write("")
 
-            # --- RENDER LEADERBOARD BASED ON SELECTION ---
-            is_main_league = (selected_league_filter_id == "00000000-0000-0000-0000-000000000001")
-            icon_prefix = "🏆" if is_main_league else "🛡️"
-            st.subheader(f"{icon_prefix} {selected_league_filter_label.replace('🛡️ ', '').replace('🏆 ', '').replace(' (Global)', '')} Standings")
+            is_global_view = (selected_league_filter_id == "00000000-0000-0000-0000-000000000001")
+            icon_prefix = "🏆" if is_global_view else "🛡️"
+            clean_display_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "").replace(" (Mini-League)", "")
+            st.subheader(f"{icon_prefix} {clean_display_name} Standings")
             
-            if is_main_league:
+            if is_global_view:
                 filtered_player_stats = get_cached_leaderboard_stats()
             else:
                 custom_league_members = supabase.table("league_members").select("user_id").eq("league_id", selected_league_filter_id).execute().data
@@ -2366,8 +2365,8 @@ else:
 
             st.divider()
 
-            # --- HEAD-TO-HEAD COMPARISON SECTION ---
-            if not is_main_league:
+            # --- HEAD-TO-HEAD COMPARISON SECTION (FOR MINI-LEAGUES) ---
+            if not is_global_view:
                 with st.expander("⚔️ Head-to-Head Player Comparison", expanded=False):
                     if filtered_player_stats:
                         all_other_names = [p["full_name"] for p in filtered_player_stats if p["id"] != user_id]
@@ -2408,8 +2407,7 @@ else:
                 st.divider()
 
             # --- PAST SEASON ARCHIVES ---
-            league_clean_name = selected_league_filter_label.replace("🛡️ ", "").replace("🏆 ", "").replace(" (Global)", "")
-            with st.expander(f"🏛️ {league_clean_name} Archives", expanded=False):
+            with st.expander(f"🏛️ {clean_display_name} Archives", expanded=False):
                 archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
 
                 champ_display_custom = f"{filtered_player_stats[0]['full_name']} ({filtered_player_stats[0]['tokens']} 🪙)" if filtered_player_stats else "TBD"
@@ -2417,24 +2415,24 @@ else:
 
                 st.markdown(f"""
                     <div class="champion-card">
-                        <div style="font-size: 20px; letter-spacing: 2px;">👑 {archive_year_sel.upper()} CHAMPION ({league_clean_name})</div>
+                        <div style="font-size: 20px; letter-spacing: 2px;">👑 {archive_year_sel.upper()} CHAMPION ({clean_display_name})</div>
                         <div style="font-size: 48px; font-weight: 900; margin: 8px 0;">{champ_display_custom}</div>
-                        <div style="font-size: 16px;">Crowned the ultimate Touchdown Tokens victor of {league_clean_name}!</div>
+                        <div style="font-size: 16px;">Crowned the ultimate victor of {clean_display_name}!</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                st.subheader(f"📜 {archive_year_sel} Official Season Final Standings — {league_clean_name}")
+                st.subheader(f"📜 {archive_year_sel} Official Season Final Standings — {clean_display_name}")
                 st.dataframe(pd.DataFrame(data_custom), use_container_width=True, hide_index=True)
 
             st.divider()
 
-            # --- LEAGUE-SPECIFIC TRASH TALK FEED (ONLY SHOWN FOR CUSTOM MINI-LEAGUES, REMOVED FOR GLOBAL LEAGUE) ---
-            if not is_main_league:
+            # --- TRASH TALK FEED (ONLY SHOWN FOR MINI-LEAGUES, REMOVED FOR GLOBAL LEAGUE) ---
+            if not is_global_view:
                 chat_target_id = selected_league_filter_id
-                st.subheader(f"💬 {league_clean_name} Trash Talk Feed")
+                st.subheader(f"💬 {clean_display_name} Trash Talk Feed")
 
                 with st.form(f"trash_talk_form_{selected_league_filter_id}"):
-                    chat_msg = st.text_input("Post a message to this league...", key=f"chat_input_{selected_league_filter_id}")
+                    chat_msg = st.text_input("Post a message to this mini-league...", key=f"chat_input_{selected_league_filter_id}")
                     post_chat = st.form_submit_button("Post Message 💬")
                     
                     if post_chat and chat_msg.strip():
@@ -2449,7 +2447,6 @@ else:
                         except Exception as e:
                             st.error(f"Error posting message: {e}")
 
-                # Fetch messages scoped specifically to this custom mini-league id
                 recent_chats = supabase.table("trash_talk").select("message, created_at, user_id").eq("league_id", chat_target_id).order("created_at", desc=True).limit(10).execute().data
                 all_profiles_chat = get_cached_profiles()
                 profile_map_chat = {p["id"]: p for p in all_profiles_chat}
@@ -2472,7 +2469,7 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
                 else:
-                    st.info("No messages in this league feed yet. Be the first to start the trash talk!")
+                    st.info("No messages in this mini-league feed yet. Be the first to start the trash talk!")
 
         st.divider()
 
@@ -2548,10 +2545,10 @@ else:
                                     st.rerun()
 
         st.write("")
-        st.markdown("#### 📋 Your Active Leagues & Commissioner Controls")
+        st.markdown("#### 📋 Your Mini-Leagues & Commissioner Controls")
         
-        if custom_leagues:
-            for mem in custom_leagues:
+        if mini_leagues:
+            for mem in mini_leagues:
                 league_info = mem.get("leagues")
                 if league_info:
                     l_id = league_info["id"]
