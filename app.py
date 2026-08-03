@@ -2406,24 +2406,46 @@ else:
 
                 st.divider()
 
-            # --- PAST SEASON ARCHIVES (ONLY SHOWN FOR MINI-LEAGUES) ---
+            # --- PERSISTENT HALL OF FAME ARCHIVES (ONLY SHOWN FOR MINI-LEAGUES) ---
             if not is_global_view:
-                with st.expander(f"🏛️ {clean_display_name} Archives", expanded=False):
-                    archive_year_sel = st.selectbox("Select Season Archive", ["2024 Season", "2023 Season"], key="hof_archive_select")
+                with st.expander(f"🏛️ {clean_display_name} Hall of Fame Archives", expanded=False):
+                    try:
+                        archives_res = supabase.table("archived_seasons").select("season_label, standings_json, archived_at").eq("league_id", selected_league_filter_id).order("archived_at", desc=True).execute().data
+                    except Exception:
+                        archives_res = []
 
-                    champ_display_custom = f"{filtered_player_stats[0]['full_name']} ({filtered_player_stats[0]['tokens']} 🪙)" if filtered_player_stats else "TBD"
-                    data_custom = [{"Rank": "🥇", "Player": p['full_name'], "Final Tokens": p['tokens']} for p in filtered_player_stats]
-
-                    st.markdown(f"""
-                        <div class="champion-card">
-                            <div style="font-size: 20px; letter-spacing: 2px;">👑 {archive_year_sel.upper()} CHAMPION ({clean_display_name})</div>
-                            <div style="font-size: 48px; font-weight: 900; margin: 8px 0;">{champ_display_custom}</div>
-                            <div style="font-size: 16px;">Crowned the ultimate victor of {clean_display_name}!</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.subheader(f"📜 {archive_year_sel} Official Season Final Standings — {clean_display_name}")
-                    st.dataframe(pd.DataFrame(data_custom), use_container_width=True, hide_index=True)
+                    if not archives_res:
+                        st.info("No past season archives found yet for this mini-league. Archived seasons will appear here once the admin concludes and archives a season!")
+                    else:
+                        archive_labels = [a["season_label"] for a in archives_res]
+                        selected_archive_label = st.selectbox("Select Season Archive", archive_labels, key=f"hof_archive_sel_{selected_league_filter_id}")
+                        
+                        selected_archive_data = next((a for a in archives_res if a["season_label"] == selected_archive_label), None)
+                        
+                        if selected_archive_data and selected_archive_data.get("standings_json"):
+                            standings_list = selected_archive_data["standings_json"]
+                            champ_entry = standings_list[0] if standings_list else {"full_name": "TBD", "tokens": 0}
+                            
+                            st.markdown(f"""
+                                <div class="champion-card">
+                                    <div style="font-size: 20px; letter-spacing: 2px;">👑 {selected_archive_label.upper()} CHAMPION ({clean_display_name})</div>
+                                    <div style="font-size: 48px; font-weight: 900; margin: 8px 0;">{champ_entry.get('full_name')} ({champ_entry.get('tokens')} 🪙)</div>
+                                    <div style="font-size: 16px;">Crowned the ultimate victor of {clean_display_name}!</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            formatted_archive_rows = []
+                            for idx, row in enumerate(standings_list):
+                                r_icon = "🥇" if idx == 0 else ("🥈" if idx == 1 else ("🥉" if idx == 2 else f"#{idx+1}"))
+                                formatted_archive_rows.append({
+                                    "Rank": r_icon,
+                                    "Player": row.get("full_name", "Unknown"),
+                                    "Final Tokens": row.get("tokens", 0),
+                                    "Favorite Team": row.get("favorite_team", "N/A")
+                                })
+                            
+                            st.subheader(f"📜 {selected_archive_label} Official Season Final Standings — {clean_display_name}")
+                            st.dataframe(pd.DataFrame(formatted_archive_rows), use_container_width=True, hide_index=True)
 
                 st.divider()
 
@@ -3119,32 +3141,47 @@ Good luck this week! 🔥"""
                 st.code(announcement_template, language="markdown")
 
             elif admin_sec == "Archive & Reset Season":
-                st.subheader("🧹 End-of-Season Reset & Archive Utility")
-                st.caption("Archive final season standings and reset all active player balances back to 10 tokens for a fresh pre-season launch.")
-                st.warning("⚠️ Action Warning: This will reset all active user token totals to 10!")
+                st.subheader("🧹 End-of-Season Hall of Fame Archive & Reset Utility")
+                st.caption("Archive final mini-league standings into the permanent Hall of Fame database and reset all player balances back to 10 tokens for a fresh pre-season launch.")
+                st.warning("⚠️ Action Warning: This will snapshot and save the current mini-league standings permanently to the database, then reset all user token totals to 10!")
                 
-                season_label = st.text_input("Season Label", value="2026 Season Archive")
-                confirm_check = st.checkbox("I confirm I wish to reset all user balances to 10 tokens for the new season.")
+                season_label = st.text_input("Season Label", value="2026 Season")
+                confirm_check = st.checkbox("I confirm I wish to archive standings to the Hall of Fame and reset all user balances to 10 tokens.")
                 
-                if st.button("Archive & Reset Balances Now 🔄", type="primary", disabled=not confirm_check):
+                if st.button("Archive to Hall of Fame & Reset Balances Now 🔄", type="primary", disabled=not confirm_check):
                     try:
                         all_profiles = get_cached_profiles()
-                        df_archive = pd.DataFrame(all_profiles)
-                        df_archive["season_label"] = season_label
                         
+                        # 1. Fetch all mini-leagues (excluding global)
+                        all_leagues_res = supabase.table("leagues").select("id, league_name").neq("id", "00000000-0000-0000-0000-000000000001").execute().data
+                        
+                        if all_leagues_res:
+                            for l in all_leagues_res:
+                                l_id = l["id"]
+                                # Get members for this mini-league
+                                members_res = supabase.table("league_members").select("user_id").eq("league_id", l_id).execute().data
+                                member_ids = {m["user_id"] for m in members_res} if members_res else set()
+                                
+                                # Filter global player stats for this mini-league and sort descending by tokens
+                                league_players = [p for p in all_profiles if p["id"] in member_ids]
+                                league_players_sorted = sorted(league_players, key=lambda x: (-x["tokens"], x["full_name"]))
+                                
+                                # Save snapshot into archived_seasons table
+                                supabase.table("archived_seasons").insert({
+                                    "league_id": l_id,
+                                    "season_label": season_label,
+                                    "standings_json": league_players_sorted
+                                }).execute()
+
+                        # 2. Reset profiles to 10 tokens
                         for p in all_profiles:
                             supabase.table("profiles").update({"tokens": 10}).eq("id", p["id"]).execute()
                             
                         st.cache_data.clear()
-                        st.success("All player balances have been reset to 10 tokens! Season archived.")
-                        st.download_button(
-                            label="📥 Download Archived Season Summary (CSV)",
-                            data=df_archive.to_csv(index=False),
-                            file_name=f"{season_label.lower().replace(' ', '_')}_final.csv",
-                            mime="text/csv"
-                        )
+                        st.balloons()
+                        st.success(f"Successfully archived '{season_label}' to the mini-league Hall of Fame and reset all player balances to 10 tokens!")
                     except Exception as e:
-                        st.error(f"Error resetting season: {e}")
+                        st.error(f"Error archiving and resetting season: {e}")
 
             elif admin_sec == "Season Champion Banner":
                 st.subheader("🏆 End-of-Season Celebration Banner")
@@ -3184,7 +3221,7 @@ Good luck this week! 🔥"""
                     signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 998).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number": 998,
+                        "week_number", 998,
                         "question_number": 1,
                         "question_text": "SIGNIN ACCESS LOCK",
                         "winning_answer": signin_status
