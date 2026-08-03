@@ -2210,17 +2210,28 @@ else:
         st.divider()
 
         with st.expander("⚔️ Side-by-Side History Comparison vs. Rival", expanded=False):
-            st.caption("Compare your graded week bets side by side against any league member in a clean head-to-head match card format!")
+            st.caption("Compare your graded week bets side by side against any member in your leagues in a clean head-to-head match card format!")
             
-            all_profiles_hist = get_cached_profiles()
-            rival_options = {p["full_name"]: p for p in all_profiles_hist if p["id"] != user_id}
+            # Fetch all league IDs the user belongs to
+            my_league_memberships = supabase.table("league_members").select("league_id").eq("user_id", user_id).execute().data
+            my_league_ids = [m["league_id"] for m in my_league_memberships] if my_league_memberships else []
+
+            # Fetch all user IDs belonging to any of those leagues
+            league_peers_res = supabase.table("league_members").select("user_id, profiles(id, full_name, favorite_team, avatar_emoji)").in_("league_id", my_league_ids).execute().data
             
+            rival_options = {}
+            if league_peers_res:
+                for lp in league_peers_res:
+                    p_data = lp.get("profiles")
+                    if p_data and p_data["id"] != user_id:
+                        rival_options[p_data["full_name"]] = p_data
+
             if rival_options and graded_weeks_list:
                 col_comp_w, col_comp_r = st.columns(2)
                 with col_comp_w:
                     comp_week_sel = st.selectbox("Select Graded Week for Comparison", graded_weeks_list, key="hist_comp_week")
                 with col_comp_r:
-                    comp_rival_name = st.selectbox("Select Rival", list(rival_options.keys()), key="hist_comp_rival")
+                    comp_rival_name = st.selectbox("Select Rival (League Member)", list(rival_options.keys()), key="hist_comp_rival")
                     
                 rival_prof = rival_options[comp_rival_name]
                 rival_id = rival_prof["id"]
@@ -2309,7 +2320,7 @@ else:
                 else:
                     st.info("You did not place any bets for this selected comparison week.")
             else:
-                st.info("Side-by-side historical comparison will unlock here automatically once at least one week has been fully graded by the Admin and other players have participated!")
+                st.info("Side-by-side historical comparison will unlock here automatically once at least one week has be fully graded by the Admin and you share a league with other active participants!")
 
     # ------------------------------------------
     # TAB 5: LEAGUES
