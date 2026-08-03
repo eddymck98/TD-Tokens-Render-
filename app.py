@@ -658,13 +658,6 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- REFRESH BUTTON AT THE TOP OF THE PAGE ---
-col_top_spacer, col_top_btn = st.columns([4, 1])
-with col_top_btn:
-    if st.button("🔄 Refresh App", help="Clears cache and reloads the application instantly across all pages!"):
-        st.cache_data.clear()
-        st.rerun()
-
 st.markdown(f"""
     <div class="nfl-header">
         <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" class="header-logo" alt="Touchdown Tokens Logo" />
@@ -3202,7 +3195,7 @@ Good luck this week! 🔥"""
                     signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
                     supabase.table("weekly_questions").delete().eq("week_number", 997).execute()
                     supabase.table("weekly_questions").insert({
-                        "week_number", 997,
+                        "week_number": 997,
                         "question_number": 1,
                         "question_text": "SIGNUP ACCESS LOCK",
                         "winning_answer": signup_status
