@@ -4845,7 +4845,7 @@ else:
                                     "standings_json": league_players_sorted,
                                 }).execute()
 
-                                st.cache_data.clear()
+                            st.cache_data.clear()
                                 st.balloons()
                                 st.success(
                                     f"Successfully concluded '{season_label_input}' for"
