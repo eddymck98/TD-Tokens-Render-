@@ -5596,23 +5596,23 @@ else:
               )
             else:
               try:
-                all_p_snapshot = get_cached_profiles()
-                all_p_sorted = sorted(
-                    all_p_snapshot, key=lambda x: (-x["tokens"], x["full_name"])
-                )
+              all_p_snapshot = get_cached_profiles()
+              all_p_sorted = sorted(
+                  all_p_snapshot, key=lambda x: (-x["tokens"], x["full_name"])
+              )
 
-                if all_p_sorted:
-                  overall_champ_id = all_p_sorted[0]["id"]
-                  champ_prof_data = (
-                      supabase.table("profiles")
-                      .select("unlocked_badges")
-                      .eq("id", overall_champ_id)
-                      .single()
-                      .execute()
-                      .data
-                  )
-                  if champ_prof_data:
-                    ub = champ_prof_data.get("unlocked_badges", [])
+              if all_p_sorted:
+                overall_champ_id = all_p_sorted[0]["id"]
+                champ_prof_data = (
+                    supabase.table("profiles")
+                    .select("unlocked_badges")
+                    .eq("id", overall_champ_id)
+                    .single()
+                    .execute()
+                    .data
+                )
+                if champ_prof_data:
+                  ub = champ_prof_data.get("unlocked_badges", [])
                   if not isinstance(ub, list):
                     ub = []
                   if "🏆 League Champion" not in ub:
@@ -5688,7 +5688,7 @@ else:
                 "week_number", 997
             ).execute()
             supabase.table("weekly_questions").insert({
-                "week_number", 997,
+                "week_number": 997,
                 "question_number": 99,
                 "question_text": "SIGNUP LOCK SETTING",
                 "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
