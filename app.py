@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timezone
 import random
 import pandas as pd
@@ -118,7 +119,11 @@ if "type" in query_params and query_params["type"] == "recovery":
       res = supabase.auth.verify_otp({"token": token_val, "type": "recovery"})
       if res and res.session:
         supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
-        controller.set("td_tokens_session", res.session.access_token, max_age=2592000)
+        session_payload = json.dumps({
+            "access_token": res.session.access_token,
+            "refresh_token": res.session.refresh_token
+        })
+        controller.set("td_tokens_session", session_payload, max_age=2592000)
     except Exception:
       pass
   st.session_state["is_password_recovery"] = True
@@ -151,19 +156,40 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SUPABASE & AUTH SESSION PERSISTENCE ---
+# --- BULLETPROOF SESSION RECOVERY ---
 if "user" not in st.session_state or st.session_state.user is None:
   st.session_state.user = None
+  
   try:
-    current_session = supabase.auth.get_session()
-    if current_session and current_session.user:
-      st.session_state.user = current_session.user
-    else:
-      session_data = supabase.auth.refresh_session()
-      if session_data and session_data.user:
-        st.session_state.user = session_data.user
+    # Fetch cookie (None on Frame 1, populates on Frame 2)
+    session_cookie = controller.get("td_tokens_session")
+    
+    if session_cookie:
+      # Parse token payload
+      if isinstance(session_cookie, str) and session_cookie.startswith("{"):
+        token_data = json.loads(session_cookie)
+        acc_token = token_data.get("access_token")
+        ref_token = token_data.get("refresh_token")
+      else:
+        acc_token = session_cookie
+        ref_token = session_cookie
+
+      # Attempt to restore session using refresh token fallback
+      res = supabase.auth.set_session(acc_token, ref_token)
+      if res and res.user:
+        st.session_state.user = res.user
+        
+        # If tokens were auto-refreshed, update cookie with new tokens
+        if res.session:
+          new_payload = json.dumps({
+              "access_token": res.session.access_token,
+              "refresh_token": res.session.refresh_token
+          })
+          controller.set("td_tokens_session", new_payload, max_age=2592000)
   except Exception:
-    pass
+    # Clear stale/invalid cookie
+    controller.remove("td_tokens_session")
+
 
 if "form_refresh" not in st.session_state:
   st.session_state.form_refresh = 0
@@ -1697,12 +1723,12 @@ elif st.session_state.user is None:
 
               if user and user.email_confirmed_at:
                 st.session_state["user"] = user
-                if auth_response.session and auth_response.session.access_token:
-                  controller.set(
-                      "td_tokens_session",
-                      auth_response.session.access_token,
-                      max_age=2592000,
-                  )
+                if auth_response.session:
+                  session_payload = json.dumps({
+                      "access_token": auth_response.session.access_token,
+                      "refresh_token": auth_response.session.refresh_token
+                  })
+                  controller.set("td_tokens_session", session_payload, max_age=2592000)
                 st.success("Successfully logged in!")
                 st.rerun()
               else:
@@ -4174,7 +4200,7 @@ else:
                                 </div>
                             """,
                   unsafe_allow_html=True,
-              )
+          )
 
               formatted_archive_rows = []
               for idx, row in enumerate(standings_list):
@@ -5421,231 +5447,193 @@ else:
               answers[q["id"]] = st.selectbox(
                   f"Q{q['question_number']}: {clean_prompt}",
                   ["Pending", "Yes", "No"],
-                  index=["Pending", "Yes", "No"].index(default_val),
-                  key=f"ans_{q['id']}",
+                  index=["Pending", "Yes", "No"].index(default_val)
+                  if default_val in ["Yes", "No"]
+                  else 0,
+                  key=f"grade_q_{q['id']}",
               )
 
-            st.markdown("---")
-            st.markdown("#### 🏈 Touchdown Scorer Correct Picks")
+            st.divider()
+            st.subheader(
+                f"🏈 Grade Week {grade_week} Touchdown Scorer Bonus Picks"
+            )
             st.caption(
-                "Select whether each player's Touchdown Scorer pick was correct"
-                " (+5 bonus tokens) or incorrect."
+                "Mark whether each player's touchdown scorer pick was correct"
+                " (+5 tokens) or incorrect."
             )
 
-            td_picks_data = (
+            week_td_picks = (
                 supabase.table("touchdown_picks")
                 .select("*")
                 .eq("week_number", grade_week)
                 .execute()
                 .data
             )
-            all_profiles = get_cached_profiles()
-            profile_dict = {p["id"]: p["full_name"] for p in all_profiles}
 
-            td_grading_results = {}
-            if not td_picks_data:
-              st.info("No Touchdown picks submitted for this week.")
-            else:
-              for td in td_picks_data:
-                player_user_name = profile_dict.get(
-                    td["user_id"], "Unknown Player"
-                )
-                current_is_correct = td.get("is_correct")
-
-                if current_is_correct is None:
-                  default_choice = "Pending"
-                elif str(current_is_correct).lower() == "true":
-                  default_choice = "Correct (+5 🪙)"
+            td_grading_inputs = {}
+            if week_td_picks:
+              for td_p in week_td_picks:
+                curr_is_correct = td_p.get("is_correct")
+                if curr_is_correct is True:
+                  default_td_idx = 1
+                elif curr_is_correct is False:
+                  default_td_idx = 2
                 else:
-                  default_choice = "Incorrect (Miss)"
+                  default_td_idx = 0
 
-                col_p_name, col_p_sel = st.columns([2, 1])
-                with col_p_name:
-                  st.markdown(
-                      f"**{player_user_name}**<br>Picked:"
-                      f" *{td['player_name']}*",
-                      unsafe_allow_html=True,
-                  )
-                with col_p_sel:
-                  grade_choice = st.selectbox(
-                      f"Grade {player_user_name}",
-                      ["Pending", "Correct (+5 🪙)", "Incorrect (Miss)"],
-                      index=[
-                          "Pending",
-                          "Correct (+5 🪙)",
-                          "Incorrect (Miss)",
-                      ].index(default_choice),
-                      key=f"td_grade_{td['id']}",
-                      label_visibility="collapsed",
-                  )
+                td_grading_inputs[td_p["id"]] = st.selectbox(
+                    f"User TD Pick: {td_p.get('player_name', 'Unknown')} (User ID: {td_p['user_id'][:6]}...)",
+                    ["Pending", "Correct (+5 🪙)", "Incorrect"],
+                    index=default_td_idx,
+                    key=f"grade_td_{td_p['id']}",
+                )
+            else:
+              st.info(
+                  "No touchdown scorer picks submitted for this week yet."
+              )
 
-                td_grading_results[td["id"]] = grade_choice
-
-              st.divider()
-
-            submit_grade_btn = st.form_submit_button(
-                "Calculate & Process Payouts 🏆", type="primary"
+            submit_grades = st.form_submit_button(
+                "Finalize Grades & Calculate Points 🚀", type="primary"
             )
 
-            if submit_grade_btn:
-              if is_week_closed:
-                st.error(
-                    "This week is closed and cannot be graded again unless"
-                    " reopened."
-                )
-              else:
-                for q_id, ans in answers.items():
+            if submit_grades:
+              for q_id, winning_choice in answers.items():
+                if winning_choice in ["Yes", "No"]:
                   supabase.table("weekly_questions").update(
-                      {"winning_answer": ans}
+                      {"winning_answer": winning_choice}
                   ).eq("id", q_id).execute()
 
-                for td_id, choice in td_grading_results.items():
-                  if choice == "Correct (+5 🪙)":
+              if week_td_picks:
+                for td_p in week_td_picks:
+                  grade_choice = td_grading_inputs.get(td_p["id"], "Pending")
+                  if grade_choice == "Correct (+5 🪙)":
                     supabase.table("touchdown_picks").update(
                         {"is_correct": True}
-                    ).eq("id", td_id).execute()
-                  elif choice == "Incorrect (Miss)":
+                    ).eq("id", td_p["id"]).execute()
+                  elif grade_choice == "Incorrect":
                     supabase.table("touchdown_picks").update(
                         {"is_correct": False}
-                    ).eq("id", td_id).execute()
-                  else:
-                    supabase.table("touchdown_picks").update(
-                        {"is_correct": None}
-                    ).eq("id", td_id).execute()
+                    ).eq("id", td_p["id"]).execute()
 
-                supabase.table("weekly_questions").delete().eq(
-                    "week_number", grade_week
-                ).eq("question_number", 96).execute()
-                supabase.table("weekly_questions").insert({
-                    "week_number": grade_week,
-                    "question_number": 96,
-                    "question_text": "WEEK CLOSED MARKER",
-                    "winning_answer": "CLOSED",
-                }).execute()
+              supabase.table("weekly_questions").delete().eq(
+                  "week_number", grade_week
+              ).eq("question_number", 96).execute()
+              supabase.table("weekly_questions").insert({
+                  "week_number": grade_week,
+                  "question_number": 96,
+                  "question_text": "WEEK CLOSED STATUS",
+                  "winning_answer": "CLOSED",
+              }).execute()
 
-                recalculate_all_user_balances(supabase)
+              recalculate_all_user_balances(supabase)
 
-                st.cache_data.clear()
-                st.balloons()
-                st.success(
-                    "Scores graded, payouts processed, and week successfully"
-                    " closed!"
-                )
-                st.rerun()
+              st.cache_data.clear()
+              st.balloons()
+              st.success(
+                  f"Week {grade_week} graded successfully and all user token"
+                  " balances recalculated!"
+              )
+              st.rerun()
 
       elif admin_sec == "Bulk Token Adjuster":
-        st.subheader("👥 Bulk Player Token Adjuster & Reset Wizard")
-        st.caption(
-            "Select multiple players at once and apply a token adjustment or"
-            " reset."
-        )
+        st.subheader("💰 Bulk Token Adjuster")
+        st.caption("Adjust token balances across all users in the database.")
 
-        all_profiles_bulk = get_cached_profiles()
-
-        if not all_profiles_bulk:
-          st.info("No players found.")
+        all_profiles_list = get_cached_profiles()
+        if not all_profiles_list:
+          st.info("No profiles found.")
         else:
           with st.form("bulk_token_form"):
-            st.markdown("#### Select players")
-            selected_user_ids = []
-
-            for p in all_profiles_bulk:
-              is_checked = st.checkbox(
-                  f"**{p['full_name']}** (Current Balance: `{p['tokens']} 🪙` |"
-                  f" Team: {p['favorite_team']})",
-                  key=f"bulk_chk_{p['id']}",
-              )
-              if is_checked:
-                selected_user_ids.append(p["id"])
-
-            st.divider()
-            st.markdown("#### Action to Apply")
-            col_ba1, col_ba2 = st.columns(2)
-            with col_ba1:
-              action_type = st.selectbox(
-                  "Operation",
-                  ["Add Tokens", "Subtract Tokens", "Set Exact Token Balance"],
-              )
-            with col_ba2:
-              token_amount_val = st.number_input(
-                  "Token Value Amount", min_value=0, value=5, step=1
-              )
+            user_options_map = {
+                f"{p['full_name']} ({p['tokens']} 🪙)": p["id"]
+                for p in all_profiles_list
+            }
+            selected_users = st.multiselect(
+                "Select Target Users (leave empty to apply to ALL users)",
+                list(user_options_map.keys()),
+            )
+            adjustment_mode = st.selectbox(
+                "Operation",
+                ["Add Tokens", "Subtract Tokens", "Set Exact Balance"],
+            )
+            bulk_amount = st.number_input(
+                "Token Amount", min_value=0, value=5, step=1
+            )
 
             submit_bulk = st.form_submit_button(
-                "Apply Bulk Adjustment ⚡", type="primary"
+                "Execute Bulk Adjustment 🚀", type="primary"
             )
 
             if submit_bulk:
-              if not selected_user_ids:
-                st.warning("Please check off at least one player above.")
-              else:
-                for u_id in selected_user_ids:
-                  p_curr = next(
-                      (p["tokens"] for p in all_profiles_bulk if p["id"] == u_id),
-                      0,
-                  )
-
-                  if action_type == "Add Tokens":
-                    new_bal = p_curr + token_amount_val
-                  elif action_type == "Subtract Tokens":
-                    new_bal = max(0, p_curr - token_amount_val)
-                  else:
-                    new_bal = token_amount_val
-
-                  supabase.table("profiles").update({"tokens": new_bal}).eq(
-                      "id", u_id
-                  ).execute()
-
-                st.cache_data.clear()
-                st.balloons()
-                st.success(
-                    f"Successfully updated tokens for {len(selected_user_ids)}"
-                    " players!"
+              target_ids = (
+                  [user_options_map[name] for name in selected_users]
+                  if selected_users
+                  else list(user_options_map.values())
+              )
+              for u_id in target_ids:
+                curr_prof = (
+                    supabase.table("profiles")
+                    .select("tokens")
+                    .eq("id", u_id)
+                    .single()
+                    .execute()
+                    .data
                 )
-                st.rerun()
+                curr_t = (
+                    curr_prof.get("tokens", 10) if curr_prof else 10
+                )
+
+                if adjustment_mode == "Add Tokens":
+                  new_t = curr_t + bulk_amount
+                elif adjustment_mode == "Subtract Tokens":
+                  new_t = max(0, curr_t - bulk_amount)
+                else:
+                  new_t = bulk_amount
+
+                supabase.table("profiles").update({"tokens": new_t}).eq(
+                    "id", u_id
+                ).execute()
+
+              st.cache_data.clear()
+              st.success(
+                  f"Successfully adjusted token balances for {len(target_ids)}"
+                  " users!"
+              )
+              st.rerun()
 
       elif admin_sec == "Export League Data (CSV)":
-        st.subheader("📥 Export League Data to CSV")
-        st.caption("Download full database dumps for Excel or record archives.")
+        st.subheader("📊 Export League Data to CSV")
+        st.caption(
+            "Download complete player profiles, token balances, and historical"
+            " bets for spreadsheet analysis."
+        )
 
-        col_exp1, col_exp2 = st.columns(2)
+        all_p_export = get_cached_profiles()
+        if all_p_export:
+          df_profiles = pd.DataFrame(all_p_export)
+          st.dataframe(df_profiles, use_container_width=True)
 
-        with col_exp1:
-          bets_data = supabase.table("user_bets").select("*").execute().data
-          if bets_data:
-            df_bets = pd.DataFrame(bets_data)
-            st.download_button(
-                label="Download All User Bets (CSV)",
-                data=df_bets.to_csv(index=False),
-                file_name="touchdown_tokens_all_bets.csv",
-                mime="text/csv",
-            )
-
-        with col_exp2:
-          users_data = get_cached_profiles()
-          if users_data:
-            df_users = pd.DataFrame(users_data)[
-                ["full_name", "tokens", "favorite_team", "bio"]
-            ]
-            st.download_button(
-                label="Download Standings & Tokens (CSV)",
-                data=df_users.to_csv(index=False),
-                file_name="touchdown_tokens_standings.csv",
-                mime="text/csv",
-            )
+          csv_data = df_profiles.to_csv(index=False).encode("utf-8")
+          st.download_button(
+              label="📥 Download Profiles CSV",
+              data=csv_data,
+              file_name="touchdown_tokens_profiles.csv",
+              mime="text/csv",
+              type="primary",
+          )
+        else:
+          st.info("No profile data available for export.")
 
       elif admin_sec == "League Chat Announcement":
-        st.subheader("📢 Pre-Formatted League Announcement Generator")
-        st.caption(
-            "Copy and paste this message directly into your WhatsApp or group"
-            " chat!"
-        )
-
+        st.subheader("📢 Broadcast Announcement & Matchup Slate Generator")
         ann_week = st.number_input(
-            "Week Number", min_value=1, max_value=24, step=1, key="admin_ann_week"
+            "Select Week for Announcement", min_value=1, max_value=24, step=1, key="ann_week_num"
         )
 
-        graded_q_badge_ann = (
+        top_winner_str = "TBD"
+        biggest_loser_str = "TBD"
+
+        graded_q_res = (
             supabase.table("weekly_questions")
             .select("week_number")
             .neq("week_number", 999)
@@ -5653,59 +5641,76 @@ else:
             .neq("week_number", 997)
             .neq("week_number", 96)
             .neq("winning_answer", "Pending")
-            .neq("winning_answer", "LOCKED")
             .order("week_number", desc=True)
             .execute()
             .data
         )
 
-        top_winner_str = "TBD"
-        biggest_loser_str = "TBD"
-
-        if graded_q_badge_ann:
-          ann_graded_w = graded_q_badge_ann[0]["week_number"]
-          w_bets = (
+        if graded_q_res:
+          latest_graded_w = graded_q_res[0]["week_number"]
+          past_bets = (
               supabase.table("user_bets")
               .select("*, weekly_questions(winning_answer)")
-              .eq("week_number", ann_graded_w)
+              .eq("week_number", latest_graded_w)
               .execute()
               .data
           )
-          w_tds = (
+          past_tds = (
               supabase.table("touchdown_picks")
               .select("*")
-              .eq("week_number", ann_graded_w)
+              .eq("week_number", latest_graded_w)
               .eq("is_correct", True)
               .execute()
               .data
           )
 
-          u_net = {}
-          for b in w_bets:
+          net_map = {}
+          loss_map = {}
+          for b in past_bets:
             u = b["user_id"]
             w_ans = b.get("weekly_questions", {}).get("winning_answer")
-            if u not in u_net:
-              u_net[u] = 0
+            if u not in net_map:
+              net_map[u] = 0
+              loss_map[u] = 0
             if w_ans in ["Yes", "No"]:
               if b["pick"] == w_ans:
-                u_net[u] += b["wager_amount"]
+                net_map[u] += b["wager_amount"]
               else:
-                u_net[u] -= b["wager_amount"]
-          for td in w_tds:
+                net_map[u] -= b["wager_amount"]
+                loss_map[u] += b["wager_amount"]
+          for td in past_tds:
             u = td["user_id"]
-            u_net[u] = u_net.get(u, 0) + 5
+            net_map[u] = net_map.get(u, 0) + 5
 
-          if u_net:
-            top_uid = max(u_net, key=u_net.get)
-            bottom_uid = min(u_net, key=u_net.get)
-            
-            top_prof = supabase.table("profiles").select("full_name").eq("id", top_uid).single().execute().data
-            bot_prof = supabase.table("profiles").select("full_name").eq("id", bottom_uid).single().execute().data
-            
-            if top_prof and u_net[top_uid] > 0:
-              top_winner_str = f"{top_prof['full_name']} (+{u_net[top_uid]} 🪙)"
-            if bot_prof and u_net[bottom_uid] < 0:
-              biggest_loser_str = f"{bot_prof['full_name']} ({u_net[bottom_uid]} 🪙)"
+          if net_map:
+            top_winner_id = max(net_map, key=net_map.get)
+            top_prof = (
+                supabase.table("profiles")
+                .select("full_name")
+                .eq("id", top_winner_id)
+                .single()
+                .execute()
+                .data
+            )
+            if top_prof:
+              top_winner_str = (
+                  f"{top_prof['full_name']} (+{net_map[top_winner_id]} 🪙)"
+              )
+
+          if loss_map:
+            biggest_loser_id = max(loss_map, key=loss_map.get)
+            loser_prof = (
+                supabase.table("profiles")
+                .select("full_name")
+                .eq("id", biggest_loser_id)
+                .single()
+                .execute()
+                .data
+            )
+            if loser_prof:
+              biggest_loser_str = (
+                  f"{loser_prof['full_name']} (-{loss_map[biggest_loser_id]} 🪙)"
+              )
 
         announcement_text = f"""
 🚨 *TOUCHDOWN TOKENS — WEEK {ann_week} UPDATE* 🚨
