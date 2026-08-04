@@ -160,42 +160,48 @@ st.markdown(
 if "user" not in st.session_state or st.session_state.user is None:
   st.session_state.user = None
   
-  try:
-    # Fetch cookie (None on Frame 1, populates on Frame 2)
-    session_cookie = controller.get("td_tokens_session")
-    
-    if session_cookie:
-      # Parse token payload
-      if isinstance(session_cookie, str) and session_cookie.startswith("{"):
-        token_data = json.loads(session_cookie)
-        acc_token = token_data.get("access_token")
-        ref_token = token_data.get("refresh_token")
+  # Fetch cookie (None on Frame 1, populates on Frame 2)
+  session_cookie = controller.get("td_tokens_session")
+  
+  if session_cookie:
+    try:
+      # 1. Safely handle both Dictionary and String cookie formats
+      if isinstance(session_cookie, dict):
+        acc_token = session_cookie.get("access_token")
+        ref_token = session_cookie.get("refresh_token")
+      elif isinstance(session_cookie, str):
+        if session_cookie.startswith("{"):
+          token_data = json.loads(session_cookie)
+          acc_token = token_data.get("access_token")
+          ref_token = token_data.get("refresh_token")
+        else:
+          acc_token = session_cookie
+          ref_token = session_cookie
       else:
-        acc_token = session_cookie
-        ref_token = session_cookie
+        acc_token = None
+        ref_token = None
 
-      # Attempt to restore session using refresh token fallback
-      res = supabase.auth.set_session(acc_token, ref_token)
-      if res and res.user:
-        st.session_state.user = res.user
-        
-        # If tokens were auto-refreshed, update cookie with new tokens
-        if res.session:
-          new_payload = json.dumps({
-              "access_token": res.session.access_token,
-              "refresh_token": res.session.refresh_token
-          })
-          controller.set("td_tokens_session", new_payload, max_age=2592000)
-  except Exception:
-    # Clear stale/invalid cookie
-    controller.remove("td_tokens_session")
-
-
-if "form_refresh" not in st.session_state:
-  st.session_state.form_refresh = 0
-
-if "signup_success_email" not in st.session_state:
-  st.session_state.signup_success_email = None
+      # 2. Only attempt to restore if we successfully extracted the tokens
+      if acc_token and ref_token:
+        res = supabase.auth.set_session(acc_token, ref_token)
+        if res and res.user:
+          st.session_state.user = res.user
+          
+          # If tokens were auto-refreshed, update cookie with new tokens
+          if res.session:
+            new_payload = json.dumps({
+                "access_token": res.session.access_token,
+                "refresh_token": res.session.refresh_token
+            })
+            controller.set("td_tokens_session", new_payload, max_age=2592000)
+            
+          # Rerun to seamlessly load the logged-in dashboard
+          st.rerun()
+    except Exception as e:
+      # We removed the controller.remove() line here. 
+      # If a temporary API hiccup occurs, it will simply fail gracefully 
+      # instead of permanently wiping out your login cookie.
+      pass
 
 
 # --- CACHED HELPERS FOR ADMIN & PERFORMANCE ---
