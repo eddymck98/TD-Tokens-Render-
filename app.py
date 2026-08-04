@@ -2283,7 +2283,7 @@ else:
 
       curr_user_bets = (
           supabase.table("user_bets")
-          .select("*, weekly_questions(question_number, question_text)")
+          .select("*, weekly_questions(question_number, question_text, winning_answer)")
           .eq("user_id", user_id)
           .eq("week_number", view_week)
           .order("question_id")
@@ -2292,7 +2292,7 @@ else:
       )
       curr_user_td = (
           supabase.table("touchdown_picks")
-          .select("player_name")
+          .select("player_name, is_correct")
           .eq("user_id", user_id)
           .eq("week_number", view_week)
           .execute()
@@ -2318,16 +2318,33 @@ else:
           )
           pick_val = b["pick"]
           wager_amt = b["wager_amount"]
+          w_ans = b.get("weekly_questions", {}).get("winning_answer", "Pending")
+
+          # Dynamic Neon Glow based on Result
+          if w_ans in ["Yes", "No"]:
+            if pick_val == w_ans:
+              card_border_glow = "#10b981"
+              card_shadow_glow = "rgba(16, 185, 129, 0.4)"
+            else:
+              card_border_glow = "#ef4444"
+              card_shadow_glow = "rgba(239, 68, 68, 0.4)"
+          else:
+            card_border_glow = user_team_color
+            card_shadow_glow = f"{user_team_color}33"
 
           st.markdown(
               f"""
-              <div class="matchup-card-item">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                      <span style="font-family: 'Bebas Neue'; font-size: 18px; color: {user_team_color}; letter-spacing: 1px;">QUESTION {q_num}</span>
-                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 6px;">Wager: <b>{wager_amt} 🪙</b></span>
+              <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {card_border_glow}; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 4px 15px {card_shadow_glow}; display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; align-items: center; gap: 12px; overflow: hidden;">
+                      <span style="font-family: 'Bebas Neue'; font-size: 16px; color: {card_border_glow}; min-width: 32px;">Q{q_num}</span>
+                      <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                          <div style="font-size: 13px; font-weight: 600; color: #ffffff;">{q_txt}</div>
+                      </div>
                   </div>
-                  <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">{q_txt}</div>
-                  <div style="font-size: 13px; color: #94a3b8;">Your Pick: <b style="color: {user_team_color}; font-size: 15px;">{pick_val}</b></div>
+                  <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: 10px;">
+                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">Pick: <b style="color: {user_team_color};">{pick_val}</b></span>
+                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">Wager: <b>{wager_amt} 🪙</b></span>
+                  </div>
               </div>
               """,
               unsafe_allow_html=True,
@@ -2335,11 +2352,28 @@ else:
           share_lines.append(f"Q{q_num}: {pick_val} ({wager_amt} tokens)")
 
         td_name = curr_user_td[0]["player_name"] if curr_user_td else "None"
+        td_status = curr_user_td[0].get("is_correct") if curr_user_td else None
+
+        if td_status is True:
+          td_glow = "#10b981"
+          td_shadow = "rgba(16, 185, 129, 0.4)"
+        elif td_status is False:
+          td_glow = "#ef4444"
+          td_shadow = "rgba(239, 68, 68, 0.4)"
+        else:
+          td_glow = "#38bdf8"
+          td_shadow = "rgba(56, 189, 248, 0.3)"
+
         st.markdown(
             f"""
-            <div class="matchup-card-item" style="border-left-color: #38bdf8 !important;">
-                <div style="font-family: 'Bebas Neue'; font-size: 18px; color: #38bdf8; letter-spacing: 1px; margin-bottom: 4px;">BONUS TOUCHDOWN SCORER</div>
-                <div style="font-size: 14px; color: #cbd5e1;">Selected Player: <b style="color: #38bdf8; font-size: 15px;">{td_name}</b></div>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {td_glow}; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 4px 15px {td_shadow}; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-family: 'Bebas Neue'; font-size: 16px; color: {td_glow};">TD</span>
+                    <div style="font-size: 13px; font-weight: 600; color: #ffffff;">Bonus Touchdown Scorer</div>
+                </div>
+                <div style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">
+                    Player: <b style="color: {td_glow};">{td_name}</b>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
