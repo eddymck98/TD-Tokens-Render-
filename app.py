@@ -1594,8 +1594,16 @@ if st.session_state.get("is_password_recovery", False):
         st.error("Passwords do not match.")
       else:
         try:
+          query_params = st.query_params
+          if "token" in query_params:
+            token_val = query_params["token"]
+            res = supabase.auth.verify_otp({"token": token_val, "type": "recovery"})
+            if res and res.session:
+              supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
+
           supabase.auth.update_user({"password": new_p1})
           st.session_state["is_password_recovery"] = False
+          st.query_params.clear()
           st.success("Password updated successfully! You can now log in.")
           st.rerun()
         except Exception as e:
@@ -1603,6 +1611,7 @@ if st.session_state.get("is_password_recovery", False):
 
   if st.button("Cancel & Return to Login"):
     st.session_state["is_password_recovery"] = False
+    st.query_params.clear()
     st.rerun()
 
 # ==========================================
@@ -5821,9 +5830,4 @@ Good luck this week! 🔥"""
               "winning_answer": signup_status,
           }).execute()
 
-          st.cache_data.clear()
-          st.success(
-              f"Access settings updated! Sign-In: {signin_status}, Sign-Up:"
-              f" {signup_status}"
-          )
-          st.rerun()
+          st.cache_data.I encountered an error doing what you asked. Could you try again?
