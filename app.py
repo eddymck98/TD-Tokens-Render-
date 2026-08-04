@@ -4702,7 +4702,7 @@ else:
         selected_admin_league_name = st.selectbox(
             "Select Mini-League to Administer",
             list(league_options_map.keys()),
-            key="league_admin_selector",
+            key="league_admin_selector_unique",
         )
         selected_league = league_options_map[selected_admin_league_name]
         l_id = selected_league["id"]
@@ -4711,6 +4711,7 @@ else:
 
         st.write("")
 
+        # Fetch fresh members directly without relying purely on cache
         members_res = (
             supabase.table("league_members")
             .select("user_id, profiles(full_name, tokens, favorite_team)")
@@ -4731,12 +4732,13 @@ else:
         st.write("")
 
         with st.expander("📝 1. League Settings & Security", expanded=True):
-          with st.form(f"redesigned_league_settings_{l_id}"):
-            new_l_name = st.text_input("League Name", value=l_name)
+          with st.form(f"league_settings_form_{l_id}"):
+            new_l_name = st.text_input("League Name", value=l_name, key=f"input_l_name_{l_id}")
             new_l_pwd = st.text_input(
                 "League Password / Passcode (Leave blank for public)",
                 type="password",
                 placeholder="Secure access code",
+                key=f"input_l_pwd_{l_id}"
             )
 
             save_settings_btn = st.form_submit_button(
@@ -4751,12 +4753,17 @@ else:
                     " appropriate wording."
                 )
               else:
-                supabase.table("leagues").update({
-                    "league_name": new_l_name.strip(),
-                    "league_password": new_l_pwd.strip() if new_l_pwd else "",
-                }).eq("id", l_id).execute()
-                st.success("League settings updated successfully!")
-                st.rerun()
+                try:
+                  supabase.table("leagues").update({
+                      "league_name": new_l_name.strip(),
+                      "league_password": new_l_pwd.strip() if new_l_pwd else "",
+                  }).eq("id", l_id).execute()
+                  
+                  st.cache_data.clear()
+                  st.success("League settings updated successfully!")
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Error updating league settings: {e}")
 
         with st.expander(
             "🪙 2. Member Token Balances & Adjustments", expanded=False
@@ -4766,55 +4773,61 @@ else:
               " league."
           )
           if members_res:
-            with st.form(f"redesigned_token_adj_{l_id}"):
+            with st.form(f"token_adj_form_{l_id}"):
               all_m_map = {
                   m.get("profiles", {}).get("full_name", "Unknown"): m["user_id"]
                   for m in members_res
                   if m.get("profiles")
               }
               target_member_name = st.selectbox(
-                  "Select Member", list(all_m_map.keys())
+                  "Select Member", list(all_m_map.keys()), key=f"sel_token_member_{l_id}"
               )
               token_adj_mode = st.selectbox(
                   "Operation",
                   ["Add Tokens", "Subtract Tokens", "Set Exact Balance"],
+                  key=f"sel_token_mode_{l_id}"
               )
               token_adj_val = st.number_input(
-                  "Token Amount", min_value=0, value=5, step=1
+                  "Token Amount", min_value=0, value=5, step=1, key=f"num_token_val_{l_id}"
               )
 
               submit_comm_adjust = st.form_submit_button(
                   "Apply Token Adjustment 🪙", type="primary"
               )
               if submit_comm_adjust:
-                t_uid = all_m_map[target_member_name]
-                curr_user_prof = (
-                    supabase.table("profiles")
-                    .select("tokens")
-                    .eq("id", t_uid)
-                    .single()
-                    .execute()
-                    .data
-                )
-                curr_toks = (
-                    curr_user_prof.get("tokens", 10) if curr_user_prof else 10
-                )
+                try:
+                  t_uid = all_m_map[target_member_name]
+                  curr_user_prof = (
+                      supabase.table("profiles")
+                      .select("tokens")
+                      .eq("id", t_uid)
+                      .single()
+                      .execute()
+                      .data
+                  )
+                  curr_toks = (
+                      curr_user_prof.get("tokens", 10) if curr_user_prof else 10
+                  )
 
-                if token_adj_mode == "Add Tokens":
-                  new_toks = curr_toks + token_adj_val
-                elif token_adj_mode == "Subtract Tokens":
-                  new_toks = max(0, curr_toks - token_adj_val)
-                else:
-                  new_toks = token_adj_val
+                  if token_adj_mode == "Add Tokens":
+                    new_toks = curr_toks + token_adj_val
+                  elif token_adj_mode == "Subtract Tokens":
+                    new_toks = max(0, curr_toks - token_adj_val)
+                  else:
+                    new_toks = token_adj_val
 
-                supabase.table("profiles").update({"tokens": new_toks}).eq(
-                    "id", t_uid
-                ).execute()
-                st.success(
-                    f"Successfully updated {target_member_name}'s balance to"
-                    f" {new_toks} tokens!"
-                )
-                st.rerun()
+                  supabase.table("profiles").update({"tokens": new_toks}).eq(
+                      "id", t_uid
+                  ).execute()
+                  
+                  st.cache_data.clear()
+                  st.success(
+                      f"Successfully updated {target_member_name}'s balance to"
+                      f" {new_toks} tokens!"
+                  )
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Error updating tokens: {e}")
           else:
             st.info("No members in this league.")
 
@@ -4830,14 +4843,16 @@ else:
             }
 
             if member_names_map:
-              with st.form(f"redesigned_kick_form_{l_id}"):
+              with st.form(f"kick_form_{l_id}"):
                 target_kick_name = st.selectbox(
                     "Select Member to Kick / Remove",
                     list(member_names_map.keys()),
+                    key=f"sel_kick_member_{l_id}"
                 )
                 confirm_kick = st.checkbox(
                     f"I confirm I want to remove {target_kick_name} from"
-                    f" {l_name}"
+                    f" {l_name}",
+                    key=f"chk_confirm_kick_{l_id}"
                 )
 
                 submit_kick = st.form_submit_button(
@@ -4850,14 +4865,19 @@ else:
                         f" {target_kick_name}."
                     )
                   else:
-                    t_kick_uid = member_names_map[target_kick_name]
-                    supabase.table("league_members").delete().eq(
-                        "league_id", l_id
-                    ).eq("user_id", t_kick_uid).execute()
-                    st.success(
-                        f"Successfully removed {target_kick_name} from {l_name}."
-                    )
-                    st.rerun()
+                    try:
+                      t_kick_uid = member_names_map[target_kick_name]
+                      supabase.table("league_members").delete().eq(
+                          "league_id", l_id
+                      ).eq("user_id", t_kick_uid).execute()
+                      
+                      st.cache_data.clear()
+                      st.success(
+                          f"Successfully removed {target_kick_name} from {l_name}."
+                      )
+                      st.rerun()
+                    except Exception as e:
+                      st.error(f"Error removing member: {e}")
             else:
               st.info("No other members in this league to remove.")
 
@@ -4872,10 +4892,12 @@ else:
                 "Season Label / Title",
                 value="2026 Season",
                 placeholder="e.g., 2026 Office Chumps Season",
+                key=f"input_season_label_{l_id}"
             )
             confirm_conclude = st.checkbox(
                 f"I confirm I want to conclude the season for {l_name}, archive"
-                " standings, and crown the winner."
+                " standings, and crown the winner.",
+                key=f"chk_confirm_conclude_{l_id}"
             )
 
             submit_conclude = st.form_submit_button(
@@ -4958,6 +4980,8 @@ else:
               supabase.table("leagues").update({"invite_code": new_code}).eq(
                   "id", l_id
               ).execute()
+              
+              st.cache_data.clear()
               st.success(f"New invite code generated: **{new_code}**")
               st.rerun()
 
@@ -4970,21 +4994,26 @@ else:
                 if m.get("profiles") and m["user_id"] != user_id
             }
             if other_member_names:
-              with st.form(f"redesigned_transfer_{l_id}"):
+              with st.form(f"transfer_ownership_form_{l_id}"):
                 new_owner_name = st.selectbox(
-                    "Select New Commissioner", list(other_member_names.keys())
+                    "Select New Commissioner", list(other_member_names.keys()), key=f"sel_new_owner_{l_id}"
                 )
                 submit_transfer = st.form_submit_button("Transfer Ownership 👑")
                 if submit_transfer:
-                  new_owner_id = other_member_names[new_owner_name]
-                  supabase.table("leagues").update(
-                      {"created_by": new_owner_id}
-                  ).eq("id", l_id).execute()
-                  st.success(
-                      f"Successfully transferred commissioner ownership to"
-                      f" {new_owner_name}!"
-                  )
-                  st.rerun()
+                  try:
+                    new_owner_id = other_member_names[new_owner_name]
+                    supabase.table("leagues").update(
+                        {"created_by": new_owner_id}
+                    ).eq("id", l_id).execute()
+                    
+                    st.cache_data.clear()
+                    st.success(
+                        f"Successfully transferred commissioner ownership to"
+                        f" {new_owner_name}!"
+                    )
+                    st.rerun()
+                  except Exception as e:
+                    st.error(f"Error transferring ownership: {e}")
             else:
               st.info("No other members available for transfer.")
 
@@ -5685,25 +5714,20 @@ else:
             if bot_prof and u_net[bottom_uid] < 0:
               biggest_loser_str = f"{bot_prof['full_name']} ({u_net[bottom_uid]} 🪙)"
 
-        all_profiles_ann = get_cached_profiles()
-        leader_p = max(all_profiles_ann, key=lambda x: x["tokens"]) if all_profiles_ann else None
-        leader_str = f"{leader_p['full_name']} ({leader_p['tokens']} 🪙)" if leader_p else "TBD"
+        announcement_text = f"""
+🚨 *TOUCHDOWN TOKENS — WEEK {ann_week} UPDATE* 🚨
 
-        announcement_template = f"""🏈 *TOUCHDOWN TOKENS - WEEK {ann_week} IS LIVE!* 🏈
+The matchup slate is locked and loaded! Head over to the app now to lock in your predictions and assign your token wagers before kickoff.
 
-👑 *Current League Leader:* {leader_str}
-🚀 *Biggest Winner Last Week:* {top_winner_str}
-📉 *Wall Street Bets Award (Biggest Loss):* {biggest_loser_str}
+📊 *Last Week's Highlights:*
+• 👑 *Weekly High Scorer:* {top_winner_str}
+• 📉 *Wall Street Bets / Biggest Loss:* {biggest_loser_str}
 
-⏰ *Kickoff Cutoff:* Sunday before 1st Kickoff (15-min lockout).
+👉 *Play now at:* https://tdtokens.co.uk
+        """.strip()
 
-Head over to the app to lock in your 10 weekly predictions and bonus touchdown scorer pick now! Good luck! 🎯"""
-
-        st.code(announcement_template, language="markdown")
-        st.success(
-            "Copy the announcement text above and paste it directly into your"
-            " group chat or WhatsApp broadcast!"
-        )
+        st.code(announcement_text, language="markdown")
+        st.success("Copy the announcement above to share with your league!")
 
       elif admin_sec == "Archive & Reset Season":
         st.subheader("🏛️ Archive Season & Global Reset Wizard")
