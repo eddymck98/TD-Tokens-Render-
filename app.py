@@ -4840,21 +4840,21 @@ else:
                         }).eq("id", champ_user_id).execute()
 
                   supabase.table("archived_seasons").insert({
-                                    "league_id": l_id,
-                                    "season_label": season_label_input.strip(),
-                                    "standings_json": league_players_sorted,
-                                }).execute()
+                      "league_id": l_id,
+                      "season_label": season_label_input.strip(),
+                      "standings_json": league_players_sorted,
+                  }).execute()
 
-                            st.cache_data.clear()
-                            st.balloons()
-                            st.success(
-                                f"Successfully concluded '{season_label_input}' for"
-                                f" {l_name}! Champion crowned and archived to Hall of"
-                                " Fame."
-                            )
-                            st.rerun()
-                          except Exception as e:
-                            st.error(f"Error concluding season: {e}")
+                  st.cache_data.clear()
+                  st.balloons()
+                  st.success(
+                      f"Successfully concluded '{season_label_input}' for"
+                      f" {l_name}! Champion crowned and archived to Hall of"
+                      " Fame."
+                  )
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Error concluding season: {e}")
 
         with st.expander("🔑 4. Invite Code & Ownership Tools", expanded=False):
           col_tc1, col_tc2 = st.columns(2)
