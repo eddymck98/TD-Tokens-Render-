@@ -5823,9 +5823,6 @@ Good luck this week! 🔥"""
 
           signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
           supabase.table("weekly_questions").delete().eq(
-              "week_number", 997
-          ).execute()
-          supabase.table("weekly_questions").insert({
               "week_number": 997,
               "question_number": 1,
               "question_text": "SIGNUP ACCESS LOCK",
