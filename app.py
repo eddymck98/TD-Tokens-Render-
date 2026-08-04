@@ -5254,8 +5254,8 @@ else:
         st.markdown(
             """
             <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #10b981; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
-                <h3 style="color: #34d399; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏈 GRADE WEEK & CALCULATE POINTS</h3>
-                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Set official winning answers, grade player predictions, evaluate touchdown bonus picks, and recalculate tokens.</p>
+                <h3 style="color: #34d399; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏈 LIVE GAME GRADING & TOKEN CALCULATOR</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Update individual match outcomes live as games finish on Sunday. Balances recalculate instantly!</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -5281,7 +5281,7 @@ else:
           st.info("No weeks available to grade.")
         else:
           grade_week_sel = st.selectbox(
-              "Select Week to Grade",
+              "Select Week to Grade Live",
               grading_week_nums,
               index=len(grading_week_nums) - 1,
               key="grade_week_sel",
@@ -5298,11 +5298,11 @@ else:
           if not real_grade_qs:
             st.warning("No questions found for this week to grade.")
           else:
-            with st.form("grading_form"):
+            with st.form("live_grading_form"):
               winning_answers_dict = {}
 
               st.markdown(
-                  "<h4 style='color: #fff; font-family: Bebas Neue; letter-spacing: 1px;'>Matchup Answers</h4>",
+                  "<h4 style='color: #fff; font-family: Bebas Neue; letter-spacing: 1px;'>Live Matchup Results</h4>",
                   unsafe_allow_html=True,
               )
               for q in real_grade_qs:
@@ -5323,15 +5323,15 @@ else:
 
                 st.markdown(
                     f"""
-                                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; border-radius: 12px; margin-bottom: 12px;">
-                                    <b>Question {q_num}:</b> {clean_q_t}
-                                </div>
-                            """,
+                    <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; border-radius: 12px; margin-bottom: 12px;">
+                        <b>Question {q_num}:</b> {clean_q_t}
+                    </div>
+                    """,
                     unsafe_allow_html=True,
                 )
 
                 winning_answers_dict[q["id"]] = st.selectbox(
-                    f"Official Winning Answer for Q{q_num}",
+                    f"Result for Q{q_num}",
                     ["Pending", "Yes", "No"],
                     index=(0 if curr_ans == "Pending" else ans_idx + 1),
                     key=f"win_ans_{q['id']}",
@@ -5377,7 +5377,7 @@ else:
 
               st.write("")
               submit_grading = st.form_submit_button(
-                  "Save Grades & Recalculate Tokens 🚀", type="primary"
+                  "Save Live Results & Recalculate Tokens 🚀", type="primary"
               )
 
               if submit_grading:
@@ -5403,14 +5403,13 @@ else:
                   recalculate_all_user_balances(supabase)
 
                   st.cache_data.clear()
-                  st.balloons()
                   st.success(
-                      f"Successfully graded Week {grade_week_sel} and"
-                      " recalculated all user token balances!"
+                      f"Successfully updated live results for Week {grade_week_sel} and"
+                      " instantly recalculated all player token balances!"
                   )
                   st.rerun()
                 except Exception as e:
-                  st.error(f"Error grading week: {e}")
+                  st.error(f"Error grading week live: {e}")
 
       elif admin_sec == "Bulk Token Adjuster":
         st.markdown(
