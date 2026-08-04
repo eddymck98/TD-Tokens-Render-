@@ -5826,4 +5826,4 @@ Good luck this week! 🔥"""
               f"Access settings updated! Sign-In: {signin_status}, Sign-Up:"
               f" {signup_status}"
           )
-          stI'm having a hard time fulfilling your request. Can I help you with something else instead?
+          st.rerun()
