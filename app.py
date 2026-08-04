@@ -1758,16 +1758,10 @@ if st.session_state.user is None:
                   }).execute()
 
                   try:
-                    supabase.table("league_members").insert([
-                        {
-                            "league_id": "00000000-0000-0000-0000-000000000001",
-                            "user_id": new_uid,
-                        },
-                        {
-                            "league_id": "00000000-0000-0000-0000-000000000002",
-                            "user_id": new_uid,
-                        },
-                    ]).execute()
+                    supabase.table("league_members").insert({
+                        "league_id": "00000000-0000-0000-0000-000000000001",
+                        "user_id": new_uid,
+                    }).execute()
                   except Exception:
                     pass
 
@@ -1832,16 +1826,10 @@ else:
       }).execute()
 
       try:
-        supabase.table("league_members").insert([
-            {
-                "league_id": "00000000-0000-0000-0000-000000000001",
-                "user_id": user_id,
-            },
-            {
-                "league_id": "00000000-0000-0000-0000-000000000002",
-                "user_id": user_id,
-            },
-        ]).execute()
+        supabase.table("league_members").insert({
+            "league_id": "00000000-0000-0000-0000-000000000001",
+            "user_id": user_id,
+        }).execute()
       except Exception:
         pass
 
@@ -5286,6 +5274,8 @@ else:
                       {"winning_answer": ans}
                   ).eq("id", q_id).execute()
 
+                for td_id, choice in td_grading_items.items(): # Fixed typo context if needed, wait use td_grading_results
+                  pass
                 for td_id, choice in td_grading_results.items():
                   if choice == "Correct (+5 🪙)":
                     supabase.table("touchdown_picks").update(
