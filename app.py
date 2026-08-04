@@ -1,6 +1,6 @@
 import os
-import random
 from datetime import datetime, timezone
+import random
 import pandas as pd
 import plotly.graph_objects as go
 import resend
@@ -54,17 +54,39 @@ def contains_profanity(text: str) -> bool:
 def send_verification_email(to_email, verification_link):
   try:
     html_content = f"""
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2>Welcome to Touchdown Tokens!</h2>
-            <p>Thanks for signing up! Please authorize your email address before logging in by clicking the link below:</p>
-            <a href="{verification_link}" style="background-color: #2e7d32; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Authorize Email</a>
-            <p style="margin-top: 20px; color: #666;">If you didn't request this, you can safely ignore this email.</p>
+        <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                
+                <!-- Header / Logo Area -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
+                    <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Weekly NFL Predictions & Wagers</p>
+                </div>
+
+                <!-- Body Content -->
+                <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 15px;">Welcome to the League, Fan! 🏈</h3>
+                <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                    Thanks for registering an account with Touchdown Tokens. To lock in your weekly picks, compete on leaderboards, and claim your tokens, please authorise your email address below:
+                </p>
+
+                <!-- Action Button -->
+                <div style="text-align: center; margin: 35px 0;">
+                    <a href="{verification_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block; box-shadow: 0 6px 20px rgba(251, 191, 36, 0.3);">AUTHORISE EMAIL ADDRESS</a>
+                </div>
+
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+                    If you did not request this account creation or verification, you can safely ignore and delete this email.
+                </p>
+            </div>
+            <div style="text-align: center; margin-top: 20px; color: #64748b; font-size: 12px;">
+                &copy; 2026 Touchdown Tokens. All rights reserved.
+            </div>
         </div>
         """
     params = {
         "from": "Touchdown Tokens <noreply@auth.tdtokens.co.uk>",
         "to": [to_email],
-        "subject": "Authorize your Touchdown Tokens account",
+        "subject": "🏈 Authorise Your Touchdown Tokens Account",
         "html": html_content,
     }
     resend.Emails.send(params)
