@@ -5830,4 +5830,9 @@ Good luck this week! 🔥"""
               "winning_answer": signup_status,
           }).execute()
 
-          st.cache_data.I encountered an error doing what you asked. Could you try again?
+          st.cache_data.clear()
+          st.success(
+              f"Access settings updated! Sign-In: {signin_status}, Sign-Up:"
+              f" {signup_status}"
+          )
+          st.rerun()
