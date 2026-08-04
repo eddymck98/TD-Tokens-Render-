@@ -5752,8 +5752,8 @@ The matchup slate is locked and loaded! Head over to the app now to lock in your
                 f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
             )
             st.rerun()
-          except Exception as e:
-            st.error(f"Error archiving season: {e}")
+        except Exception as e:
+          st.error(f"Error archiving season: {e}")
 
       elif admin_sec == "App Access Control":
         st.subheader("🔒 App-Wide Sign-In & Sign-Up Lock Controls")
