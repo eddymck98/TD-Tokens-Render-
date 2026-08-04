@@ -764,11 +764,9 @@ st.markdown(
         font-family: 'Inter', sans-serif !important;
     }}
     
+    /* Completely hide sidebar */
     section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #030712 0%, #0b0f19 100%) !important;
-        border-right: 3px solid {user_team_color} !important;
-        font-family: 'Inter', sans-serif !important;
-        box-shadow: 6px 0 30px rgba(0,0,0,0.7);
+        display: none !important;
     }}
     
     a, a:visited, a:hover, a:active {{
@@ -2051,32 +2049,6 @@ else:
       "is_admin", False
   )
 
-  # --- SIDEBAR ---
-  st.sidebar.markdown(
-      f"""
-        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; padding: 6px 0;">
-            <div style="border: 3px {user_border_style} {user_team_color}; border-radius: 12px; padding: 6px 10px; background: {user_avatar_color}; box-shadow: 0 4px 15px {user_team_color}44;">
-                <span style="font-size: 34px;">{user_avatar}</span>
-            </div>
-            <div>
-                <b style="font-size: 19px; color: #ffffff; letter-spacing: 0.3px;">{profile['full_name']}</b>
-                <div style="font-size: 11px; color: #38bdf8; font-weight: 600;">{get_earned_title(user_id)}</div>
-                <div style="font-size: 12px; color: #94a3b8; font-weight: 500;">{user_team}</div>
-            </div>
-        </div>
-    """,
-      unsafe_allow_html=True,
-  )
-  st.sidebar.image(team_data["logo"], width=55)
-
-  fav_player_sidebar = profile.get("favorite_player", "")
-  if fav_player_sidebar:
-    st.sidebar.markdown(
-        f"<div style='font-size:14px; color:#38bdf8; margin-top:-4px;'>⭐ Fav"
-        f" Player: <b>{fav_player_sidebar}</b></div>",
-        unsafe_allow_html=True,
-    )
-
   weeks_res = (
       supabase.table("weekly_questions")
       .select("week_number")
@@ -2144,32 +2116,6 @@ else:
       active_tokens_display = max(
           0, true_global_tokens_sidebar - total_wagered_active
       )
-
-  st.sidebar.metric(
-      label="Available Tokens",
-      value=f"{active_tokens_display} 🪙",
-      help=(
-          "Total True Global Tokens minus active wagers placed for the upcoming"
-          " week."
-      ),
-  )
-
-  if profile.get("is_admin"):
-    st.sidebar.success("👑 System Admin Active")
-  elif is_any_league_admin:
-    st.sidebar.info("⭐ League Commissioner Active")
-
-  st.sidebar.divider()
-  if st.sidebar.button("Log Out"):
-    try:
-      supabase.auth.sign_out()
-    except Exception:
-      pass
-    controller.remove("td_tokens_session")
-    st.session_state.user = None
-    if "supabase_client" in st.session_state:
-      del st.session_state["supabase_client"]
-    st.rerun()
 
   # --- STICKY HEADER / COMPACT BALANCE BAR ---
   st.markdown(
@@ -4705,6 +4651,21 @@ else:
         }).eq("id", user_id).execute()
         st.success("Accessibility preferences saved!")
         st.rerun()
+
+    st.divider()
+
+    st.subheader("🚪 Session Management")
+    st.caption("Log out of your account securely from this device.")
+    if st.button("Log Out of Account 🚪", type="secondary"):
+      try:
+        supabase.auth.sign_out()
+      except Exception:
+        pass
+      controller.remove("td_tokens_session")
+      st.session_state.user = None
+      if "supabase_client" in st.session_state:
+        del st.session_state["supabase_client"]
+      st.rerun()
 
   # ------------------------------------------
   # TAB: LEAGUE ADMIN
