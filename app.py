@@ -773,7 +773,7 @@ st.markdown(
     
     a, a:visited, a:hover, a:active {{
         color: #38bdf8 !important;
-        text-decoration: underline !important;
+        text-decoration: none !important;
     }}
     
     p, span, label, div[data-testid="stMarkdownContainer"] {{
@@ -3153,9 +3153,15 @@ else:
   # ------------------------------------------
   with tab_bet:
     st.header("Weekly Predictions & Wagers")
-    st.link_button(
-        "🏈 View NFL Scores, Lines & Fixtures ↗️",
-        "https://www.espn.com/nfl/schedule",
+    st.markdown(
+        f"""
+        <div style="margin-bottom: 16px;">
+            <a href="https://www.espn.com/nfl/schedule" target="_blank" style="display: inline-block; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.2); border-left: 4px solid {user_team_color}; color: #ffffff !important; padding: 10px 18px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1.2px; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s ease;">
+                🏈 View NFL Scores, Lines & Fixtures <span style="font-size: 16px; margin-left: 6px; color: #38bdf8;">↗</span>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     st.caption(
         "Check real-time odds and matchups on ESPN before locking in your picks"
@@ -5751,124 +5757,144 @@ else:
 🚀 *Biggest Winner Last Week:* {top_winner_str}
 📉 *Wall Street Bets Award (Biggest Loss):* {biggest_loser_str}
 
-⏰ *Kickoff Cutoff:* Sunday before 1st Kickoff
+⏰ *Kickoff Cutoff:* Sunday before 1st Kickoff (15-min lockout).
 
-👉 Place your wagers and TD scorer pick now on Touchdown Tokens!
-Good luck this week! 🔥"""
+Head over to the app to lock in your 10 weekly predictions and bonus touchdown scorer pick now! Good luck! 🎯"""
 
         st.code(announcement_template, language="markdown")
+        st.success(
+            "Copy the announcement text above and paste it directly into your"
+            " group chat or WhatsApp broadcast!"
+        )
 
       elif admin_sec == "Archive & Reset Season":
-        st.subheader("🧹 End-of-Season Hall of Fame Archive & Reset Utility")
-        st.caption(
-            "Archive final mini-league standings into the permanent Hall of"
-            " Fame database and reset all player balances back to 10 tokens for"
-            " a fresh pre-season launch."
-        )
+        st.subheader("🏛️ Archive Season & Global Reset Wizard")
         st.warning(
-            "⚠️ Action Warning: This will snapshot and save the current"
-            " mini-league standings permanently to the database, then reset all"
-            " user token totals to 10!"
+            "⚠️ **DANGER ZONE:** This action will snapshot current global"
+            " standings, archive them into the Hall of Fame, crown the"
+            " overall champion, and optionally reset all player tokens back to"
+            " 10!"
         )
 
-        season_label = st.text_input("Season Label", value="2026 Season")
-        confirm_check = st.checkbox(
-            "I confirm I wish to archive standings to the Hall of Fame and"
-            " reset all user balances to 10 tokens."
-        )
+        with st.form("archive_reset_form"):
+          season_title_input = st.text_input(
+              "Season Title",
+              value="2026 NFL Season",
+              placeholder="e.g., 2026 NFL Season",
+          )
+          reset_tokens_checkbox = st.checkbox(
+              "Reset all player token balances back to 10 for the new season"
+          )
+          confirm_phrase = st.text_input(
+              "Type 'ARCHIVE SEASON' to confirm", placeholder=""
+          )
 
-        if st.button(
-            "Archive to Hall of Fame & Reset Balances Now 🔄",
-            type="primary",
-            disabled=not confirm_check,
-        ):
-          try:
-            all_profiles = get_cached_profiles()
+          submit_archive = st.form_submit_button(
+              "Execute Season Archive & Reset 🚀", type="primary"
+          )
 
-            all_leagues_res = (
-                supabase.table("leagues")
-                .select("id, league_name")
-                .neq("id", "00000000-0000-0000-0000-000000000001")
-                .execute()
-                .data
-            )
-
-            if all_leagues_res:
-              for l in all_leagues_res:
-                l_id = l["id"]
-                members_res = (
-                    supabase.table("league_members")
-                    .select("user_id")
-                    .eq("league_id", l_id)
-                    .execute()
-                    .data
-                )
-                member_ids = (
-                    {m["user_id"] for m in members_res}
-                    if members_res
-                    else set()
+          if submit_archive:
+            if confirm_phrase != "ARCHIVE SEASON":
+              st.error(
+                  "Please type exactly 'ARCHIVE SEASON' to confirm this"
+                  " action."
+              )
+            else:
+              try:
+                all_p_snapshot = get_cached_profiles()
+                all_p_sorted = sorted(
+                    all_p_snapshot, key=lambda x: (-x["tokens"], x["full_name"])
                 )
 
-                league_players = [
-                    p for p in all_profiles if p["id"] in member_ids
-                ]
-                league_players_sorted = sorted(
-                    league_players, key=lambda x: (-x["tokens"], x["full_name"])
-                )
+                if all_p_sorted:
+                  overall_champ_id = all_p_sorted[0]["id"]
+                  champ_prof_data = (
+                      supabase.table("profiles")
+                      .select("unlocked_badges")
+                      .eq("id", overall_champ_id)
+                      .single()
+                      .execute()
+                      .data
+                  )
+                  if champ_prof_data:
+                    ub = champ_prof_data.get("unlocked_badges", [])
+                    if not isinstance(ub, list):
+                      ub = []
+                    if "🏆 League Champion" not in ub:
+                      ub.append("🏆 League Champion")
+                      supabase.table("profiles").update({
+                          "unlocked_badges": ub,
+                          "selected_title": "👑 League Champion",
+                      }).eq("id", overall_champ_id).execute()
 
                 supabase.table("archived_seasons").insert({
-                    "league_id": l_id,
-                    "season_label": season_label,
-                    "standings_json": league_players_sorted,
+                    "league_id": "00000000-0000-0000-0000-000000000001",
+                    "season_label": season_title_input.strip(),
+                    "standings_json": all_p_sorted,
                 }).execute()
 
-            for p in all_profiles:
-              supabase.table("profiles").update({"tokens": 10}).eq(
-                  "id", p["id"]
-              ).execute()
+                if reset_tokens_checkbox:
+                  for p_item in all_p_snapshot:
+                    supabase.table("profiles").update({"tokens": 10}).eq(
+                        "id", p_item["id"]
+                    ).execute()
 
-            st.cache_data.clear()
-            st.balloons()
-            st.success(
-                f"Successfully archived '{season_label}' to the mini-league Hall"
-                " of Fame and reset all player balances to 10 tokens!"
-            )
-          except Exception as e:
-            st.error(f"Error archiving and resetting season: {e}")
+                st.cache_data.clear()
+                st.balloons()
+                st.success(
+                    f"Successfully archived '{season_title_input}' into the"
+                    " global Hall of Fame!"
+                    f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
+                )
+                st.rerun()
+              except Exception as e:
+                st.error(f"Error archiving season: {e}")
 
       elif admin_sec == "App Access Control":
-        st.subheader("🔒 App Sign-In & Sign-Up Access Control")
+        st.subheader("🔒 App-Wide Sign-In & Sign-Up Lock Controls")
         st.caption(
-            "Independently lock down sign-in and sign-up gateways to restrict"
-            " access separately."
+            "Temporarily lock user sign-ins or new account sign-ups during"
+            " maintenance."
         )
 
-        lock_signin_toggle = st.toggle("Lock Sign-In Gate", value=is_signin_locked)
-        lock_signup_toggle = st.toggle("Lock Sign-Up Gate", value=is_signup_locked)
+        curr_signin_locked = is_signin_locked
+        curr_signup_locked = is_signup_locked
 
-        if st.button("Save Access Control Settings 🛡️", type="primary"):
-          signin_status = "LOCKED" if lock_signin_toggle else "OPEN"
-          supabase.table("weekly_questions").delete().eq(
-              "week_number", 998
-          ).execute()
-          supabase.table("weekly_questions").insert({
-              "week_number": 998,
-              "question_number": 1,
-              "question_text": "SIGNIN ACCESS LOCK",
-              "winning_answer": signin_status,
-          }).execute()
+        with st.form("app_access_control_form"):
+          new_signin_lock = st.toggle(
+              "🔒 Lock User Sign-Ins (Prevent existing users from logging"
+              " in)",
+              value=curr_signin_locked,
+          )
+          new_signup_lock = st.toggle(
+              "🔒 Lock New Sign-Ups (Prevent new account registrations)",
+              value=curr_signup_locked,
+          )
 
-          signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
-          supabase.table("weekly_questions").delete().eq(
-              "week_number", 997
-          ).execute()
-          supabase.table("weekly_questions").insert({
-              "week_number": 997,
-              "question_number": 1,
-              "question_text": "SIGNUP ACCESS LOCK",
-              "winning_answer": signup_status,
-          }).execute()
+          submit_access_ctrl = st.form_submit_button(
+              "Save Access Controls 💾", type="primary"
+          )
+          if submit_access_ctrl:
+            supabase.table("weekly_questions").delete().eq(
+                "week_number", 998
+            ).execute()
+            supabase.table("weekly_questions").insert({
+                "week_number": 998,
+                "question_number": 99,
+                "question_text": "SIGNIN LOCK SETTING",
+                "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
+            }).execute()
 
-          st.cache_data.clear()
-          st.success("Access control settings saved successfully!")
-          st.rerun()
+            supabase.table("weekly_questions").delete().eq(
+                "week_number", 997
+            ).execute()
+            supabase.table("weekly_questions").insert({
+                "week_number": 997,
+                "question_number": 99,
+                "question_text": "SIGNUP LOCK SETTING",
+                "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
+            }).execute()
+
+            st.cache_data.clear()
+            st.success("App access controls successfully updated!")
+            st.rerun()
