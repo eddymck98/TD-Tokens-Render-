@@ -1583,6 +1583,7 @@ if st.session_state.get("is_password_recovery", False):
   st.caption("Please choose a secure new password for your account.")
 
   with st.form("password_recovery_screen_form"):
+    recovery_email = st.text_input("Confirm Your Account Email")
     new_p1 = st.text_input("New Password (min 6 chars)", type="password")
     new_p2 = st.text_input("Confirm New Password", type="password")
     submit_new_pass = st.form_submit_button("Update Password & Log In 🚀", type="primary")
@@ -1592,13 +1593,19 @@ if st.session_state.get("is_password_recovery", False):
         st.warning("Password must be at least 6 characters long.")
       elif new_p1 != new_p2:
         st.error("Passwords do not match.")
+      elif not recovery_email.strip():
+        st.warning("Please enter your email address.")
       else:
         try:
           query_params = st.query_params
           token_val = query_params.get("token", "")
           
           if token_val:
-            res = supabase.auth.verify_otp({"token": token_val, "type": "recovery"})
+            res = supabase.auth.verify_otp({
+                "email": recovery_email.strip(),
+                "token": token_val,
+                "type": "recovery"
+            })
             if res and res.session:
               supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
 
