@@ -5718,42 +5718,42 @@ The matchup slate is locked and loaded! Head over to the app now to lock in your
                       .select("unlocked_badges")
                       .eq("id", overall_champ_id)
                       .single()
-                  .execute()
-                  .data
-              )
-              except champ_prof_data:
-                ub = champ_prof_data.get("unlocked_badges", [])
-                if not isinstance(ub, list):
-                  ub = []
-                if "🏆 League Champion" not in ub:
-                  ub.append("🏆 League Champion")
-                  supabase.table("profiles").update({
-                      "unlocked_badges": ub,
-                      "selected_title": "👑 League Champion",
-                  }).eq("id", overall_champ_id).execute()
+                      .execute()
+                      .data
+                  )
+                  if champ_prof_data:
+                    ub = champ_prof_data.get("unlocked_badges", [])
+                    if not isinstance(ub, list):
+                      ub = []
+                    if "🏆 League Champion" not in ub:
+                      ub.append("🏆 League Champion")
+                      supabase.table("profiles").update({
+                          "unlocked_badges": ub,
+                          "selected_title": "👑 League Champion",
+                      }).eq("id", overall_champ_id).execute()
 
-            supabase.table("archived_seasons").insert({
-                "league_id": "00000000-0000-0000-0000-000000000001",
-                "season_label": season_title_input.strip(),
-                "standings_json": all_p_sorted,
-            }).execute()
+                supabase.table("archived_seasons").insert({
+                    "league_id": "00000000-0000-0000-0000-000000000001",
+                    "season_label": season_title_input.strip(),
+                    "standings_json": all_p_sorted,
+                }).execute()
 
-            if reset_tokens_checkbox:
-              for p_item in all_p_snapshot:
-                supabase.table("profiles").update({"tokens": 10}).eq(
-                    "id", p_item["id"]
-                ).execute()
+                if reset_tokens_checkbox:
+                  for p_item in all_p_snapshot:
+                    supabase.table("profiles").update({"tokens": 10}).eq(
+                        "id", p_item["id"]
+                    ).execute()
 
-            st.cache_data.clear()
-            st.balloons()
-            st.success(
-                f"Successfully archived '{season_title_input}' into the"
-                " global Hall of Fame!"
-                f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
-            )
-            st.rerun()
-        except Exception as e:
-          st.error(f"Error archiving season: {e}")
+                st.cache_data.clear()
+                st.balloons()
+                st.success(
+                    f"Successfully archived '{season_title_input}' into the"
+                    " global Hall of Fame!"
+                    f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
+                )
+                st.rerun()
+              except Exception as e:
+                st.error(f"Error archiving season: {e}")
 
       elif admin_sec == "App Access Control":
         st.subheader("🔒 App-Wide Sign-In & Sign-Up Lock Controls")
