@@ -57,8 +57,9 @@ def send_verification_email(to_email, verification_link):
         <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
             <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 
-                <!-- Header / Logo Area -->
+                <!-- Header / Logo Area with Embedded Image -->
                 <div style="text-align: center; margin-bottom: 30px;">
+                    <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px; filter: drop-shadow(0px 6px 15px rgba(251, 191, 36, 0.4));" />
                     <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
                     <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Weekly NFL Predictions & Wagers</p>
                 </div>
@@ -130,6 +131,9 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 if "form_refresh" not in st.session_state:
   st.session_state.form_refresh = 0
+
+if "signup_success_email" not in st.session_state:
+  st.session_state.signup_success_email = None
 
 
 # --- CACHED HELPERS FOR ADMIN & PERFORMANCE ---
@@ -1534,213 +1538,250 @@ except Exception:
 # ==========================================
 if st.session_state.user is None:
   st.title("Touchdown Tokens")
-  tab_login, tab_signup = st.tabs(["🔒 Log In", "📝 Sign Up"])
 
-  with tab_login:
-    st.subheader("Login to Your Account")
-    if is_signin_locked:
-      st.error(
-          "🔒 **SIGN-IN LOCKED:** The Admin has temporarily disabled log-ins."
-          " Please check back soon!"
-      )
-    else:
-      login_email = st.text_input("Email", key="login_email")
-      login_password = st.text_input(
-          "Password", type="password", key="login_password"
-      )
+  # Check if we just completed a successful signup flow to display the clean confirmation card
+  if st.session_state.get("signup_success_email"):
+    success_email_val = st.session_state["signup_success_email"]
+    st.markdown(
+        f"""
+        <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.15); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 35px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px;">
+            <h2 style="color: #fbbf24; font-family: 'Bebas Neue', Arial, sans-serif; font-size: 36px; letter-spacing: 2px; margin-bottom: 10px;">WELCOME TO THE LEAGUE! 🏈</h2>
+            <p style="color: #cbd5e1; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                We have successfully created your account and sent a verification email to <b style="color: #38bdf8;">{success_email_val}</b>.
+            </p>
+            <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); padding: 18px; border-radius: 12px; margin-bottom: 25px; text-align: left;">
+                <b style="color: #ffffff; font-size: 15px;">Next Steps:</b>
+                <ol style="color: #cbd5e1; font-size: 14px; margin-top: 8px; margin-bottom: 0; padding-left: 20px; line-height: 1.6;">
+                    <li>Check your email inbox (and spam folder just in case).</li>
+                    <li>Click the <b>Authorise Email Address</b> verification link inside the email.</li>
+                    <li>Return here and log in to start locking in your weekly picks and claiming your 10 free tokens!</li>
+                </ol>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-      if st.button("Login"):
-        if login_email and login_password:
-          try:
-            auth_response = supabase.auth.sign_in_with_password({
-                "email": login_email,
-                "password": login_password,
-            })
-            user = auth_response.user
+    st.write("")
+    col_btn_back1, col_btn_back2 = st.columns(2)
+    with col_btn_back1:
+      if st.button("Proceed to Log In 🔒", type="primary"):
+        st.session_state.signup_success_email = None
+        st.rerun()
+    with col_btn_back2:
+      if st.button("Sign Up Another Account 📝"):
+        st.session_state.signup_success_email = None
+        st.rerun()
 
-            if user and user.email_confirmed_at:
-              st.session_state["user"] = user
-              if auth_response.session and auth_response.session.access_token:
-                controller.set(
-                    "td_tokens_session",
-                    auth_response.session.access_token,
-                    max_age=2592000,
-                )
-              st.success("Successfully logged in!")
-              st.rerun()
-            else:
-              supabase.auth.sign_out()
-              st.error(
-                  "Please authorise your email first before logging in. Check"
-                  " your inbox for the verification link."
-              )
-          except Exception:
-            st.error(
-                "Invalid login credentials or unverified account. Please"
-                " authorise first."
-            )
-        else:
-          st.warning("Please enter both email and password.")
+  else:
+    tab_login, tab_signup = st.tabs(["🔒 Log In", "📝 Sign Up"])
 
-      st.write("")
-      with st.expander("🔑 Forgot Password?"):
-        st.caption("Enter your email address to receive a password reset link.")
-        reset_email = st.text_input("Your Account Email", key="reset_email_input")
-        if st.button("Send Reset Link"):
-          if reset_email:
+    with tab_login:
+      st.subheader("Login to Your Account")
+      if is_signin_locked:
+        st.error(
+            "🔒 **SIGN-IN LOCKED:** The Admin has temporarily disabled log-ins."
+            " Please check back soon!"
+        )
+      else:
+        login_email = st.text_input("Email", key="login_email")
+        login_password = st.text_input(
+            "Password", type="password", key="login_password"
+        )
+
+        if st.button("Login"):
+          if login_email and login_password:
             try:
-              supabase.auth.reset_password_for_email(reset_email)
-              st.success("Password reset email sent! Check your inbox.")
-            except Exception as e:
-              st.error(f"Error sending email: {e}")
-          else:
-            st.warning("Please enter your email address.")
-
-  with tab_signup:
-    st.subheader("Create an Account")
-    if is_signup_locked:
-      st.error(
-          "🔒 **SIGN-UP LOCKED:** The Admin has temporarily disabled new account"
-          " registrations. Please check back soon!"
-      )
-    else:
-      st.caption("New players start with 10 free tokens!")
-
-      col_fn, col_sn = st.columns(2)
-      with col_fn:
-        reg_first_name = st.text_input("First Name", key="reg_first_name")
-      with col_sn:
-        reg_surname = st.text_input("Surname", key="reg_surname")
-
-      signup_email = st.text_input("Email Address", key="signup_email")
-      signup_password = st.text_input(
-          "Password (min 6 chars)", type="password", key="signup_password"
-      )
-
-      st.write("")
-      with st.expander(
-          "📖 View Touchdown Tokens Terms of Service & User Agreement"
-      ):
-        st.markdown("""
-                    **TOUCHDOWN TOKENS — TERMS OF SERVICE & USER AGREEMENT**
-
-                    **1. Nature of the Platform & Virtual Currency**  
-                    • *Recreational & Entertainment Purpose:* Touchdown Tokens is strictly an independent, recreational, free-to-play sports prediction and entertainment platform designed solely for amusement and community engagement among sports fans.  
-                    • *Zero Cash Value:* All points, scores, standings, and virtual tokens ("Tokens") maintain zero real-world cash or monetary value and cannot be purchased, sold, bartered, or redeemed for currency, goods, or services.  
-                    • *Not Gambling:* Because Tokens cannot be purchased or cashed out, the Platform does not constitute gambling, sports betting, or a lottery.
-
-                    **2. Eligibility & Account Registration**  
-                    • *Eligibility:* You represent and warrant that you are of legal age in your jurisdiction to enter into a binding contract.  
-                    • *Single Account Policy:* Each user is strictly permitted to maintain one (1) active account. Multi-accounting, automated scripts, or proxy use to manipulate rankings is prohibited.  
-                    • *Account Security:* You are solely responsible for maintaining the confidentiality of your credentials and all activity under your account.
-
-                    **3. Gameplay, Submissions & Deadlines**  
-                    • *Lockout Deadlines:* Weekly picks and touchdown scorer bonus selections lock strictly 15 minutes prior to the first scheduled Sunday NFL kickoff. Late submissions are not accepted.  
-                    • *Final Overrides:* You may update picks freely before lockout. Your final submitted state at the moment of lockout constitutes your official, binding entry. Previous iterations are overwritten.  
-                    • *Grading:* All scenario outcomes and standings are graded and finalized by the system administrator using official NFL statistics (powered by ESPN feeds). Administrative rulings are final.
-
-                    **4. Code of Conduct & Community Standards**  
-                    • *Acceptable Use:* Users must utilize the Platform in a respectful, lawful, and sportsmanlike manner.  
-                    • *Prohibited Conduct:* Harassment, hate speech, threats, collusion, cheating, match-fixing, or attempting to compromise database security is strictly prohibited.  
-                    • *Enforcement:* Administrators reserve the right to moderate content, deduct tokens, suspend accounts, or permanently terminate access for violations without prior notice.
-
-                    **5. Intellectual Property Rights**  
-                    • *Ownership:* All source code, design layouts, custom branding, and logos associated with Touchdown Tokens are the exclusive intellectual property of the Platform creators. Third-party team logos and sports data remain property of their respective holders.
-
-                    **6. Disclaimers & Limitation of Liability**  
-                    • *As Is Basis:* The Platform is provided on an "as is" and "as available" basis without warranties of any kind.  
-                    • *Third-Party APIs:* We rely on third-party data providers (e.g., ESPN API) and assume no liability for temporary data outages, delayed stats, or initial erroneous scoring.  
-                    • *Postponed/Canceled Games:* In the event an NFL game is officially postponed or canceled, connected questions are voided and token wagers are fully refunded.  
-                    • *Limitation of Liability:* Administrators and hosts shall not be held liable for any direct, indirect, or consequential damages arising out of your use of the Platform.
-
-                    **7. Modifications & Governing Law**  
-                    • *Amendments:* Administrators reserve the right to modify these Terms at any time. Continued use of the Platform constitutes binding acceptance of revised terms.  
-                    • *Governing Law:* These Terms are governed by and construed in accordance with the laws of the jurisdiction in which the Platform is primarily administered.
-                """)
-
-      tc_accepted = st.checkbox(
-          "I agree to the Touchdown Tokens Terms of Service & User Agreement",
-          key="reg_tc_checkbox",
-      )
-
-      if st.button("Sign Up"):
-        if not reg_first_name.strip():
-          st.warning("Please enter your first name.")
-        elif not reg_surname.strip():
-          st.warning("Please enter your surname.")
-        elif not signup_email.strip():
-          st.warning("Please enter your email address.")
-        elif not tc_accepted:
-          st.warning(
-              "You must accept the Terms of Service & User Agreement to create"
-              " an account."
-          )
-        else:
-          combined_full_name = (
-              f"{reg_first_name.strip()} {reg_surname.strip()}"
-          )
-          if contains_profanity(combined_full_name):
-            st.error(
-                "⚠️ Your name contains restricted language. Please choose"
-                " appropriate wording."
-            )
-          else:
-            try:
-              response = supabase.auth.sign_up({
-                  "email": signup_email.strip(),
-                  "password": signup_password,
+              auth_response = supabase.auth.sign_in_with_password({
+                  "email": login_email,
+                  "password": login_password,
               })
+              user = auth_response.user
 
-              if response.user:
-                new_uid = response.user.id
-                supabase.table("profiles").insert({
-                    "id": new_uid,
-                    "email": signup_email.strip(),
-                    "full_name": combined_full_name,
-                    "tokens": 10,
-                    "is_admin": False,
-                    "favorite_team": "🏈 Free Agent / Neutral",
-                    "bio": "Ready for Kickoff!",
-                    "avatar_emoji": "🏈",
-                    "featured_badges": [],
-                    "unlocked_badges": [],
-                    "avatar_border": "solid",
-                    "favorite_player": "",
-                    "avatar_color": "#1e3a8a",
-                    "selected_title": "🏈 Gridiron Contender",
-                    "default_league_view": (
-                        "00000000-0000-0000-0000-000000000001"
-                    ),
-                    "email_notifications": True,
-                    "high_contrast_mode": False,
-                    "reduced_motion": False,
-                }).execute()
-
-                try:
-                  supabase.table("league_members").insert([
-                      {
-                          "league_id": "00000000-0000-0000-0000-000000000001",
-                          "user_id": new_uid,
-                      },
-                      {
-                          "league_id": "00000000-0000-0000-0000-000000000002",
-                          "user_id": new_uid,
-                      },
-                  ]).execute()
-                except Exception:
-                  pass
-
-                verify_url = "https://tdtokens.co.uk"
-                send_verification_email(signup_email.strip(), verify_url)
-
-                st.success(
-                    "Thanks for signing up, please authorise your email before"
-                    " logging in."
-                )
+              if user and user.email_confirmed_at:
+                st.session_state["user"] = user
+                if auth_response.session and auth_response.session.access_token:
+                  controller.set(
+                      "td_tokens_session",
+                      auth_response.session.access_token,
+                      max_age=2592000,
+                  )
+                st.success("Successfully logged in!")
+                st.rerun()
               else:
-                st.error("Sign up failed. Please try again.")
-            except Exception as e:
-              st.error(f"Error: {e}")
+                supabase.auth.sign_out()
+                st.error(
+                    "Please authorise your email first before logging in. Check"
+                    " your inbox for the verification link."
+                )
+            except Exception:
+              st.error(
+                  "Invalid login credentials or unverified account. Please"
+                  " authorise first."
+              )
+          else:
+            st.warning("Please enter both email and password.")
+
+        st.write("")
+        with st.expander("🔑 Forgot Password?"):
+          st.caption("Enter your email address to receive a password reset link.")
+          reset_email = st.text_input(
+              "Your Account Email", key="reset_email_input"
+          )
+          if st.button("Send Reset Link"):
+            if reset_email:
+              try:
+                supabase.auth.reset_password_for_email(reset_email)
+                st.success("Password reset email sent! Check your inbox.")
+              except Exception as e:
+                st.error(f"Error sending email: {e}")
+            else:
+              st.warning("Please enter your email address.")
+
+    with tab_signup:
+      st.subheader("Create an Account")
+      if is_signup_locked:
+        st.error(
+            "🔒 **SIGN-UP LOCKED:** The Admin has temporarily disabled new account"
+            " registrations. Please check back soon!"
+        )
+      else:
+        st.caption("New players start with 10 free tokens!")
+
+        col_fn, col_sn = st.columns(2)
+        with col_fn:
+          reg_first_name = st.text_input("First Name", key="reg_first_name")
+        with col_sn:
+          reg_surname = st.text_input("Surname", key="reg_surname")
+
+        signup_email = st.text_input("Email Address", key="signup_email")
+        signup_password = st.text_input(
+            "Password (min 6 chars)", type="password", key="signup_password"
+        )
+
+        st.write("")
+        with st.expander(
+            "📖 View Touchdown Tokens Terms of Service & User Agreement"
+        ):
+          st.markdown("""
+                      **TOUCHDOWN TOKENS — TERMS OF SERVICE & USER AGREEMENT**
+
+                      **1. Nature of the Platform & Virtual Currency**  
+                      • *Recreational & Entertainment Purpose:* Touchdown Tokens is strictly an independent, recreational, free-to-play sports prediction and entertainment platform designed solely for amusement and community engagement among sports fans.  
+                      • *Zero Cash Value:* All points, scores, standings, and virtual tokens ("Tokens") maintain zero real-world cash or monetary value and cannot be purchased, sold, bartered, or redeemed for currency, goods, or services.  
+                      • *Not Gambling:* Because Tokens cannot be purchased or cashed out, the Platform does not constitute gambling, sports betting, or a lottery.
+
+                      **2. Eligibility & Account Registration**  
+                      • *Eligibility:* You represent and warrant that you are of legal age in your jurisdiction to enter into a binding contract.  
+                      • *Single Account Policy:* Each user is strictly permitted to maintain one (1) active account. Multi-accounting, automated scripts, or proxy use to manipulate rankings is prohibited.  
+                      • *Account Security:* You are solely responsible for maintaining the confidentiality of your credentials and all activity under your account.
+
+                      **3. Gameplay, Submissions & Deadlines**  
+                      • *Lockout Deadlines:* Weekly picks and touchdown scorer bonus selections lock strictly 15 minutes prior to the first scheduled Sunday NFL kickoff. Late submissions are not accepted.  
+                      • *Final Overrides:* You may update picks freely before lockout. Your final submitted state at the moment of lockout constitutes your official, binding entry. Previous iterations are overwritten.  
+                      • *Grading:* All scenario outcomes and standings are graded and finalized by the system administrator using official NFL statistics (powered by ESPN feeds). Administrative rulings are final.
+
+                      **4. Code of Conduct & Community Standards**  
+                      • *Acceptable Use:* Users must utilize the Platform in a respectful, lawful, and sportsmanlike manner.  
+                      • *Prohibited Conduct:* Harassment, hate speech, threats, collusion, cheating, match-fixing, or attempting to compromise database security is strictly prohibited.  
+                      • *Enforcement:* Administrators reserve the right to moderate content, deduct tokens, suspend accounts, or permanently terminate access for violations without prior notice.
+
+                      **5. Intellectual Property Rights**  
+                      • *Ownership:* All source code, design layouts, custom branding, and logos associated with Touchdown Tokens are the exclusive intellectual property of the Platform creators. Third-party team logos and sports data remain property of their respective holders.
+
+                      **6. Disclaimers & Limitation of Liability**  
+                      • *As Is Basis:* The Platform is provided on an "as is" and "as available" basis without warranties of any kind.  
+                      • *Third-Party APIs:* We rely on third-party data providers (e.g., ESPN API) and assume no liability for temporary data outages, delayed stats, or initial erroneous scoring.  
+                      • *Postponed/Canceled Games:* In the event an NFL game is officially postponed or canceled, connected questions are voided and token wagers are fully refunded.  
+                      • *Limitation of Liability:* Administrators and hosts shall not be held liable for any direct, indirect, or consequential damages arising out of your use of the Platform.
+
+                      **7. Modifications & Governing Law**  
+                      • *Amendments:* Administrators reserve the right to modify these Terms at any time. Continued use of the Platform constitutes binding acceptance of revised terms.  
+                      • *Governing Law:* These Terms are governed by and construed in accordance with the laws of the jurisdiction in which the Platform is primarily administered.
+                  """)
+
+        tc_accepted = st.checkbox(
+            "I agree to the Touchdown Tokens Terms of Service & User Agreement",
+            key="reg_tc_checkbox",
+        )
+
+        if st.button("Sign Up"):
+          if not reg_first_name.strip():
+            st.warning("Please enter your first name.")
+          elif not reg_surname.strip():
+            st.warning("Please enter your surname.")
+          elif not signup_email.strip():
+            st.warning("Please enter your email address.")
+          elif not tc_accepted:
+            st.warning(
+                "You must accept the Terms of Service & User Agreement to create"
+                " an account."
+            )
+          else:
+            combined_full_name = (
+                f"{reg_first_name.strip()} {reg_surname.strip()}"
+            )
+            if contains_profanity(combined_full_name):
+              st.error(
+                  "⚠️ Your name contains restricted language. Please choose"
+                  " appropriate wording."
+              )
+            else:
+              try:
+                response = supabase.auth.sign_up({
+                    "email": signup_email.strip(),
+                    "password": signup_password,
+                })
+
+                if response.user:
+                  new_uid = response.user.id
+                  supabase.table("profiles").insert({
+                      "id": new_uid,
+                      "email": signup_email.strip(),
+                      "full_name": combined_full_name,
+                      "tokens": 10,
+                      "is_admin": False,
+                      "favorite_team": "🏈 Free Agent / Neutral",
+                      "bio": "Ready for Kickoff!",
+                      "avatar_emoji": "🏈",
+                      "featured_badges": [],
+                      "unlocked_badges": [],
+                      "avatar_border": "solid",
+                      "favorite_player": "",
+                      "avatar_color": "#1e3a8a",
+                      "selected_title": "🏈 Gridiron Contender",
+                      "default_league_view": (
+                          "00000000-0000-0000-0000-000000000001"
+                      ),
+                      "email_notifications": True,
+                      "high_contrast_mode": False,
+                      "reduced_motion": False,
+                  }).execute()
+
+                  try:
+                    supabase.table("league_members").insert([
+                        {
+                            "league_id": "00000000-0000-0000-0000-000000000001",
+                            "user_id": new_uid,
+                        },
+                        {
+                            "league_id": "00000000-0000-0000-0000-000000000002",
+                            "user_id": new_uid,
+                        },
+                    ]).execute()
+                  except Exception:
+                    pass
+
+                  verify_url = "https://tdtokens.co.uk"
+                  send_verification_email(signup_email.strip(), verify_url)
+
+                  # Save success state and rerun to cleanly clear the form and display confirmation screen
+                  st.session_state.signup_success_email = signup_email.strip()
+                  st.rerun()
+                else:
+                  st.error("Sign up failed. Please try again.")
+              except Exception as e:
+                st.error(f"Error: {e}")
 
 # ==========================================
 # 2. MAIN LOGGED-IN GAME PORTAL
@@ -5015,7 +5056,7 @@ else:
             ).eq("question_number", 99).execute()
             supabase.table("weekly_questions").insert({
                 "week_number": lock_week,
-                "question_number": 99,
+                "question_number", 99,
                 "question_text": "WEEK LOCKOUT TIMESTAMP",
                 "winning_answer": f"LOCKTIME:{combined_dt}",
             }).execute()
