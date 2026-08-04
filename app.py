@@ -1595,13 +1595,15 @@ if st.session_state.get("is_password_recovery", False):
       else:
         try:
           query_params = st.query_params
-          if "token" in query_params:
-            token_val = query_params["token"]
+          token_val = query_params.get("token", "")
+          
+          if token_val:
             res = supabase.auth.verify_otp({"token": token_val, "type": "recovery"})
             if res and res.session:
               supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
 
           supabase.auth.update_user({"password": new_p1})
+          
           st.session_state["is_password_recovery"] = False
           st.query_params.clear()
           st.success("Password updated successfully! You can now log in.")
