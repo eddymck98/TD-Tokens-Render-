@@ -821,27 +821,45 @@ st.markdown(
         box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }}
 
-    .big-token-card {{
-        background: linear-gradient(135deg, rgba(30, 58, 138, 0.88) 0%, rgba(6, 10, 18, 0.94) 100%);
-        padding: 32px;
-        border-radius: 20px;
-        color: #ffffff !important;
-        text-align: center;
+    /* --- NEW HOME SCREEN HERO & CARDS STYLING --- */
+    .hero-banner {{
+        background: linear-gradient(135deg, rgba(30, 58, 138, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(255, 255, 255, 0.15);
-        border-top: 3px solid {user_team_color};
+        border-top: 4px solid {user_team_color};
+        border-radius: 20px;
+        padding: 28px;
         margin-bottom: 25px;
         backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 10px 35px rgba(0,0,0,0.5);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.6);
         animation: teamPulse 3.5s infinite ease-in-out;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }}
-    .big-token-number {{
+    .hero-tokens-val {{
         font-family: 'Bebas Neue', sans-serif;
-        font-size: 78px;
-        letter-spacing: 3px;
-        margin: 0;
+        font-size: 64px;
         color: {user_team_color} !important;
-        text-shadow: 0px 6px 20px {user_team_color}99;
+        letter-spacing: 2px;
+        line-height: 1;
+        margin: 0;
+        text-shadow: 0 4px 15px {user_team_color}88;
+    }}
+
+    .matchup-card-item {{
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-left: 4px solid {user_team_color};
+        border-radius: 14px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+        transition: transform 0.2s ease;
+    }}
+    .matchup-card-item:hover {{
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.25);
     }}
 
     .champion-card {{
@@ -2259,18 +2277,24 @@ else:
     ])
 
   # ------------------------------------------
-  # TAB 0: HOME
+  # TAB 0: REDESIGNED HOME SCREEN
   # ------------------------------------------
   with tab_home:
-    st.markdown(f"## Welcome back, {profile['full_name']}! 👋")
-
+    # 1. High-Impact Hero Banner Section
     st.markdown(
         f"""
-            <div class="big-token-card">
-                <div style="font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd;">Available Balance</div>
-                <div class="big-token-number">{active_tokens_display} 🪙</div>
-                <div style="font-size: 16px; color: #cbd5e1;">True Global Bank: {true_global_tokens_sidebar} 🪙 (Active Wagers Deducted)</div>
+        <div class="hero-banner">
+            <div>
+                <div style="font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd; font-weight: 600;">Available Balance</div>
+                <div class="hero-tokens-val">{active_tokens_display} 🪙</div>
+                <div style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">True Global Bank: <b>{true_global_tokens_sidebar} 🪙</b> (Active Wagers Deducted)</div>
             </div>
+            <div style="text-align: right; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 20px;">
+                <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Welcome Back</div>
+                <div style="font-size: 18px; font-weight: bold; color: #ffffff;">{profile['full_name']}</div>
+                <div style="font-size: 11px; color: #38bdf8;">{get_earned_title(user_id)}</div>
+            </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -2319,6 +2343,7 @@ else:
             f"🏈 *{profile['full_name']} - Week {view_week} Lock-Ins* 🏈"
         ]
 
+        # 2. Modernized Interactive Cards Layout for Picks
         for b in curr_user_bets:
           q_num = b.get("weekly_questions", {}).get("question_number", "?")
           q_txt = (
@@ -2331,11 +2356,15 @@ else:
 
           st.markdown(
               f"""
-                        <div class="summary-box">
-                            <b>Q{q_num}: {q_txt}</b><br>
-                            • Your Pick: <b style="color:{user_team_color};">{pick_val}</b> | Wager: <b>{wager_amt} 🪙</b>
-                        </div>
-                    """,
+              <div class="matchup-card-item">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                      <span style="font-family: 'Bebas Neue'; font-size: 18px; color: {user_team_color}; letter-spacing: 1px;">QUESTION {q_num}</span>
+                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 6px;">Wager: <b>{wager_amt} 🪙</b></span>
+                  </div>
+                  <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">{q_txt}</div>
+                  <div style="font-size: 13px; color: #94a3b8;">Your Pick: <b style="color: {user_team_color}; font-size: 15px;">{pick_val}</b></div>
+              </div>
+              """,
               unsafe_allow_html=True,
           )
           share_lines.append(f"Q{q_num}: {pick_val} ({wager_amt} tokens)")
@@ -2343,11 +2372,11 @@ else:
         td_name = curr_user_td[0]["player_name"] if curr_user_td else "None"
         st.markdown(
             f"""
-                    <div class="summary-box" style="border-left-color: #38bdf8 !important;">
-                        <b>🏈 Touchdown Scorer Bonus Pick:</b><br>
-                        • Player: <b style="color:#38bdf8;">{td_name}</b>
-                    </div>
-                """,
+            <div class="matchup-card-item" style="border-left-color: #38bdf8 !important;">
+                <div style="font-family: 'Bebas Neue'; font-size: 18px; color: #38bdf8; letter-spacing: 1px; margin-bottom: 4px;">BONUS TOUCHDOWN SCORER</div>
+                <div style="font-size: 14px; color: #cbd5e1;">Selected Player: <b style="color: #38bdf8; font-size: 15px;">{td_name}</b></div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         share_lines.append(f"TD Scorer Pick: {td_name}")
@@ -3695,6 +3724,7 @@ else:
       )
       my_league_ids = [m["league_id"] for m in my_league_memberships] if my_league_memberships else []
 
+      # --- REQUIREMENT CHECK: Restrict rival options strictly to members in shared leagues ---
       league_peers_res = (
           supabase.table("league_members")
           .select("user_id, profiles(id, full_name, favorite_team, avatar_emoji)")
@@ -3720,7 +3750,7 @@ else:
           )
         with col_comp_r:
           comp_rival_name = st.selectbox(
-              "Select Rival (League Member)",
+              "Select Rival (Shared League Member)",
               list(rival_options.keys()),
               key="hist_comp_rival",
           )
@@ -3862,7 +3892,7 @@ else:
       else:
         st.info(
             "Side-by-side historical comparison will unlock here automatically"
-            " once at least one week has be fully graded by the Admin and you"
+            " once at least one week has been fully graded by the Admin and you"
             " share a league with other active participants!"
         )
 
