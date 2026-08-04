@@ -4846,15 +4846,15 @@ else:
                                 }).execute()
 
                             st.cache_data.clear()
-                                st.balloons()
-                                st.success(
-                                    f"Successfully concluded '{season_label_input}' for"
-                                    f" {l_name}! Champion crowned and archived to Hall of"
-                                    " Fame."
-                                )
-                                st.rerun()
-                              except Exception as e:
-                                st.error(f"Error concluding season: {e}")
+                            st.balloons()
+                            st.success(
+                                f"Successfully concluded '{season_label_input}' for"
+                                f" {l_name}! Champion crowned and archived to Hall of"
+                                " Fame."
+                            )
+                            st.rerun()
+                          except Exception as e:
+                            st.error(f"Error concluding season: {e}")
 
         with st.expander("🔑 4. Invite Code & Ownership Tools", expanded=False):
           col_tc1, col_tc2 = st.columns(2)
