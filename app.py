@@ -5644,7 +5644,7 @@ Good luck this week! 🔥"""
               "week_number", 997
           ).execute()
           supabase.table("weekly_questions").insert({
-              "week_number", 997,
+              "week_number": 997,
               "question_number": 1,
               "question_text": "SIGNUP ACCESS LOCK",
               "winning_answer": signup_status,
