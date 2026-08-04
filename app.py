@@ -4934,11 +4934,14 @@ else:
       )
 
       if admin_sec == "Manage Questions":
-        st.subheader("📋 Manage & Edit Weekly Questions & Matchups")
-        st.caption(
-            "Select a week below to view, publish, or edit questions and"
-            " matchups dynamically. They will stay right here for ongoing"
-            " edits!"
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #fbbf24; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #fbbf24; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">📋 WEEKLY QUESTIONS & MATCHUPS HUB</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Select a target week to configure matchups, publish prompts, or load quick templates.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         all_db_weeks = (
@@ -4963,34 +4966,27 @@ else:
             if next_suggested_week not in db_week_nums
             else db_week_nums
         )
-        selected_manage_week = st.selectbox(
-            "Select Week to Manage",
-            week_options,
-            index=len(week_options) - 1,
-            key="admin_manage_week_sel",
-        )
 
-        existing_week_qs = get_cached_weekly_questions(selected_manage_week)
-        real_existing_qs = {
-            q["question_number"]: q
-            for q in existing_week_qs
-            if q.get("question_number", 0) <= 10
-        }
-
-        col_btn1, col_btn2 = st.columns([1, 1])
-        with col_btn1:
-          if st.button("📋 Load 10 Default Question Templates"):
+        col_w_sel, col_w_btn1, col_w_btn2 = st.columns([2, 1, 1])
+        with col_w_sel:
+          selected_manage_week = st.selectbox(
+              "Select Week to Manage",
+              week_options,
+              index=len(week_options) - 1,
+              key="admin_manage_week_sel",
+          )
+        with col_w_btn1:
+          st.write("")
+          if st.button("📋 Load Templates"):
             for i in range(1, 11):
               st.session_state[f"m_prompt_w{selected_manage_week}_q{i}"] = (
                   DEFAULT_QUESTION_TEMPLATES[i - 1]
               )
-            st.success("Default templates loaded instantly!")
+            st.success("Templates loaded!")
             st.rerun()
-        with col_btn2:
-          if st.button(
-              "🗑️ Clear Unpublished Questions",
-              help="Deletes all unpublished questions for this week",
-          ):
+        with col_w_btn2:
+          st.write("")
+          if st.button("🗑️ Clear Week"):
             try:
               supabase.table("weekly_questions").delete().eq(
                   "week_number", selected_manage_week
@@ -5000,18 +4996,30 @@ else:
                 if skey in st.session_state:
                   del st.session_state[skey]
               st.cache_data.clear()
-              st.success(
-                  f"Cleared unpublished questions for Week {selected_manage_week}!"
-              )
+              st.success(f"Cleared Week {selected_manage_week}!")
               st.rerun()
             except Exception as e:
-              st.error(f"Error clearing questions: {e}")
+              st.error(f"Error: {e}")
 
+        existing_week_qs = get_cached_weekly_questions(selected_manage_week)
+        real_existing_qs = {
+            q["question_number"]: q
+            for q in existing_week_qs
+            if q.get("question_number", 0) <= 10
+        }
+
+        st.write("")
         with st.form(key=f"manage_questions_form_week_{selected_manage_week}"):
           question_payloads = []
 
           for i in range(1, 11):
-            st.markdown(f"#### Question {i}")
+            st.markdown(
+                f"""
+                <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #38bdf8; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <span style="font-family: 'Bebas Neue'; font-size: 20px; color: #38bdf8; letter-spacing: 1px;">QUESTION {i} CONFIGURATION</span>
+                """,
+                unsafe_allow_html=True,
+            )
 
             q_obj = real_existing_qs.get(i, {})
             raw_txt = q_obj.get("question_text", "")
@@ -5045,7 +5053,7 @@ else:
             col_m1, col_m2 = st.columns(2)
             with col_m1:
               away_t = st.selectbox(
-                  f"Q{i} Away Team",
+                  f"Away Team (Q{i})",
                   NFL_TEAMS,
                   index=(
                       NFL_TEAMS.index(existing_away)
@@ -5056,7 +5064,7 @@ else:
               )
             with col_m2:
               home_t = st.selectbox(
-                  f"Q{i} Home Team",
+                  f"Home Team (Q{i})",
                   NFL_TEAMS,
                   index=(
                       NFL_TEAMS.index(existing_home)
@@ -5067,8 +5075,14 @@ else:
               )
 
             prompt_val = st.text_input(
-                f"Question {i} Prompt", value=existing_prompt, key=session_key
+                f"Question {i} Prompt",
+                value=existing_prompt,
+                key=session_key,
+                label_visibility="collapsed",
+                placeholder="Enter scenario prompt text...",
             )
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
             question_payloads.append({
                 "question_number": i,
@@ -5077,7 +5091,6 @@ else:
                 "home": home_t,
                 "db_id": q_obj.get("id"),
             })
-            st.divider()
 
           save_all_questions_btn = st.form_submit_button(
               "Save & Publish All Questions 💾", type="primary"
@@ -5121,10 +5134,14 @@ else:
                 st.error(f"Error publishing questions: {e}")
 
       elif admin_sec == "Auto-Lockout Scheduler":
-        st.subheader("⏳ Kickoff Lockout Scheduler")
-        st.caption(
-            "Configure precise kickoff lockout dates and times so picks"
-            " automatically lock prior to kickoff."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #38bdf8; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #38bdf8; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">⏳ KICKOFF LOCKOUT SCHEDULER</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Configure precise kickoff lockout dates and times so picks automatically lock prior to kickoff.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         all_sched_weeks = (
@@ -5184,6 +5201,7 @@ else:
                   "Lockout Time (UTC)", value=default_dt.time()
               )
 
+            st.write("")
             col_btn_set, col_btn_clear = st.columns(2)
             with col_btn_set:
               submit_lock = st.form_submit_button(
@@ -5233,11 +5251,14 @@ else:
                 st.error(f"Error saving lockout: {e}")
 
       elif admin_sec == "Grade Week & Calculate Points":
-        st.subheader("🏈 Grade Week & Calculate Points")
-        st.caption(
-            "Select a week to set official winning answers, grade player"
-            " predictions, evaluate touchdown scorer bonus picks, and"
-            " recalculate token balances."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #10b981; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #34d399; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏈 GRADE WEEK & CALCULATE POINTS</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Set official winning answers, grade player predictions, evaluate touchdown bonus picks, and recalculate tokens.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         all_grading_weeks = (
@@ -5280,6 +5301,10 @@ else:
             with st.form("grading_form"):
               winning_answers_dict = {}
 
+              st.markdown(
+                  "<h4 style='color: #fff; font-family: Bebas Neue; letter-spacing: 1px;'>Matchup Answers</h4>",
+                  unsafe_allow_html=True,
+              )
               for q in real_grade_qs:
                 q_num = q["question_number"]
                 raw_q_t = q["question_text"]
@@ -5292,11 +5317,13 @@ else:
                 curr_ans = q.get("winning_answer", "Pending")
                 if curr_ans not in ["Yes", "No"]:
                   curr_ans = "Pending"
-                ans_idx = 0 if curr_ans == "Yes" else (1 if curr_ans == "No" else 2)
+                ans_idx = (
+                    0 if curr_ans == "Yes" else (1 if curr_ans == "No" else 2)
+                )
 
                 st.markdown(
                     f"""
-                                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); padding: 12px 16px; border-radius: 10px; margin-bottom: 10px;">
+                                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; border-radius: 12px; margin-bottom: 12px;">
                                     <b>Question {q_num}:</b> {clean_q_t}
                                 </div>
                             """,
@@ -5308,13 +5335,13 @@ else:
                     ["Pending", "Yes", "No"],
                     index=(0 if curr_ans == "Pending" else ans_idx + 1),
                     key=f"win_ans_{q['id']}",
+                    label_visibility="collapsed",
                 )
 
-              st.divider()
-              st.markdown("### 🏈 Grade Touchdown Scorer Bonus Picks")
-              st.caption(
-                  "Review player touchdown scorer picks for this week and mark"
-                  " them correct or incorrect."
+              st.write("")
+              st.markdown(
+                  "<h4 style='color: #fff; font-family: Bebas Neue; letter-spacing: 1px;'>Touchdown Scorer Bonus Picks</h4>",
+                  unsafe_allow_html=True,
               )
 
               week_td_picks = (
@@ -5348,6 +5375,7 @@ else:
               else:
                 st.info("No touchdown scorer picks submitted for this week.")
 
+              st.write("")
               submit_grading = st.form_submit_button(
                   "Save Grades & Recalculate Tokens 🚀", type="primary"
               )
@@ -5385,9 +5413,14 @@ else:
                   st.error(f"Error grading week: {e}")
 
       elif admin_sec == "Bulk Token Adjuster":
-        st.subheader("💰 Bulk Token Adjuster")
-        st.caption(
-            "Quickly adjust token balances for any player in the global league."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #fbbf24; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #fbbf24; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">💰 BULK TOKEN ADJUSTER</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Quickly adjust token balances for any player across the global league.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         all_profiles = get_cached_profiles()
@@ -5401,7 +5434,14 @@ else:
             target_p = user_map[sel_p_name]
             curr_tokens = target_p.get("tokens", 10)
 
-            st.markdown(f"**Current Token Balance:** `{curr_tokens} 🪙`")
+            st.markdown(
+                f"""
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 14px; border-radius: 12px; margin: 15px 0;">
+                    Current Token Balance for <b style="color: #38bdf8;">{sel_p_name}</b>: <span style="font-family: 'Bebas Neue'; font-size: 24px; color: #fbbf24;">{curr_tokens} 🪙</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             adjustment_type = st.radio(
                 "Adjustment Action",
@@ -5412,6 +5452,7 @@ else:
                 "Token Amount", min_value=0, max_value=1000, value=5
             )
 
+            st.write("")
             submit_token_adj = st.form_submit_button(
                 "Apply Token Adjustment 💾", type="primary"
             )
@@ -5442,10 +5483,14 @@ else:
                   st.error(f"Error updating tokens: {e}")
 
       elif admin_sec == "Export League Data (CSV)":
-        st.subheader("📥 Export League Data to CSV")
-        st.caption(
-            "Download complete player profiles, active tokens, and historical"
-            " bets for external record-keeping."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #38bdf8; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #38bdf8; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">📥 EXPORT LEAGUE DATA (CSV)</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Download complete player profiles, active tokens, and historical bets for external record-keeping.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         all_p_export = get_cached_profiles()
@@ -5464,10 +5509,14 @@ else:
           st.info("No data available to export.")
 
       elif admin_sec == "League Chat Announcement":
-        st.subheader("📢 Post League-Wide Announcement")
-        st.caption(
-            "Broadcast an official commissioner announcement directly into all"
-            " mini-league chat feeds."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #c084fc; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #c084fc; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">📢 LEAGUE CHAT ANNOUNCEMENT</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Broadcast an official commissioner announcement directly into all mini-league chat feeds.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         with st.form("announcement_form"):
@@ -5475,6 +5524,7 @@ else:
               "Announcement Message",
               placeholder="e.g., Reminder: Week 5 kickoff lockout is in 1 hour!",
           )
+          st.write("")
           submit_announcement = st.form_submit_button(
               "Broadcast Announcement 📢", type="primary"
           )
@@ -5512,11 +5562,14 @@ else:
                 st.error(f"Error broadcasting announcement: {e}")
 
       elif admin_sec == "Archive & Reset Season":
-        st.subheader("🏛️ Global Hall of Fame Archive & Season Reset")
-        st.caption(
-            "Archive current global standings into the Hall of Fame and"
-            " optionally reset all player token balances back to 10 for a new"
-            " season."
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #f59e0b; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #f59e0b; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏛️ GLOBAL HALL OF FAME ARCHIVE & SEASON RESET</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Archive current global standings into the Hall of Fame and optionally reset all token balances back to 10.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         with st.form("archive_season_form"):
@@ -5530,6 +5583,7 @@ else:
               "Type 'ARCHIVE SEASON' to confirm", placeholder="ARCHIVE SEASON"
           )
 
+          st.write("")
           submit_archive = st.form_submit_button(
               "Archive Season & Crown Champion 🏆", type="primary"
           )
@@ -5558,84 +5612,88 @@ else:
                       .data
                   )
                   if champ_prof_data:
-                    ub = champ_prof_data.get("unlocked_badges", [])
-                    if not isinstance(ub, list):
-                      ub = []
-                    if "🏆 League Champion" not in ub:
-                      ub.append("🏆 League Champion")
-                      supabase.table("profiles").update({
-                          "unlocked_badges": ub,
-                          "selected_title": "👑 League Champion",
-                      }).eq("id", overall_champ_id).execute()
+                  ub = champ_prof_data.get("unlocked_badges", [])
+                  if not isinstance(ub, list):
+                    ub = []
+                  if "🏆 League Champion" not in ub:
+                    ub.append("🏆 League Champion")
+                    supabase.table("profiles").update({
+                        "unlocked_badges": ub,
+                        "selected_title": "👑 League Champion",
+                    }).eq("id", overall_champ_id).execute()
 
-                supabase.table("archived_seasons").insert({
-                    "league_id": "00000000-0000-0000-0000-000000000001",
-                    "season_label": season_title_input.strip(),
-                    "standings_json": all_p_sorted,
-                }).execute()
+              supabase.table("archived_seasons").insert({
+                  "league_id": "00000000-0000-0000-0000-000000000001",
+                  "season_label": season_title_input.strip(),
+                  "standings_json": all_p_sorted,
+              }).execute()
 
-                if reset_tokens_checkbox:
-                  for p_item in all_p_snapshot:
-                    supabase.table("profiles").update({"tokens": 10}).eq(
-                        "id", p_item["id"]
-                    ).execute()
+              if reset_tokens_checkbox:
+                for p_item in all_p_snapshot:
+                  supabase.table("profiles").update({"tokens": 10}).eq(
+                      "id", p_item["id"]
+                  ).execute()
 
-                st.cache_data.clear()
-                st.balloons()
-                st.success(
-                    f"Successfully archived '{season_title_input}' into the"
-                    " global Hall of Fame!"
-                    f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
-                )
-                st.rerun()
-              except Exception as e:
-                st.error(f"Error archiving season: {e}")
+              st.cache_data.clear()
+              st.balloons()
+              st.success(
+                  f"Successfully archived '{season_title_input}' into the"
+                  " global Hall of Fame!"
+                  f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
+              )
+              st.rerun()
+            except Exception as e:
+              st.error(f"Error archiving season: {e}")
 
-      elif admin_sec == "App Access Control":
-        st.subheader("🔒 App-Wide Sign-In & Sign-Up Lock Controls")
-        st.caption(
-            "Temporarily lock user sign-ins or new account sign-ups during"
-            " maintenance."
+    elif admin_sec == "App Access Control":
+      st.markdown(
+          """
+          <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #ef4444; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+              <h3 style="color: #f87171; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🔒 APP-WIDE SIGN-IN & SIGN-UP LOCK CONTROLS</h3>
+              <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Temporarily lock user sign-ins or new account sign-ups during maintenance.</p>
+          </div>
+          """,
+          unsafe_allow_html=True,
+      )
+
+      curr_signin_locked = is_signin_locked
+      curr_signup_locked = is_signup_locked
+
+      with st.form("app_access_control_form"):
+        new_signin_lock = st.toggle(
+            "🔒 Lock User Sign-Ins (Prevent existing users from logging in)",
+            value=curr_signin_locked,
+        )
+        new_signup_lock = st.toggle(
+            "🔒 Lock New Sign-Ups (Prevent new account registrations)",
+            value=curr_signup_locked,
         )
 
-        curr_signin_locked = is_signin_locked
-        curr_signup_locked = is_signup_locked
+        st.write("")
+        submit_access_ctrl = st.form_submit_button(
+            "Save Access Controls 💾", type="primary"
+        )
+        if submit_access_ctrl:
+          supabase.table("weekly_questions").delete().eq(
+              "week_number", 998
+          ).execute()
+          supabase.table("weekly_questions").insert({
+              "week_number": 998,
+              "question_number": 99,
+              "question_text": "SIGNIN LOCK SETTING",
+              "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
+          }).execute()
 
-        with st.form("app_access_control_form"):
-          new_signin_lock = st.toggle(
-              "🔒 Lock User Sign-Ins (Prevent existing users from logging"
-              " in)",
-              value=curr_signin_locked,
-          )
-          new_signup_lock = st.toggle(
-              "🔒 Lock New Sign-Ups (Prevent new account registrations)",
-              value=curr_signup_locked,
-          )
+          supabase.table("weekly_questions").delete().eq(
+              "week_number", 997
+          ).execute()
+          supabase.table("weekly_questions").insert({
+              "week_number": 997,
+              "question_number": 99,
+              "question_text": "SIGNUP LOCK SETTING",
+              "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
+          }).execute()
 
-          submit_access_ctrl = st.form_submit_button(
-              "Save Access Controls 💾", type="primary"
-          )
-          if submit_access_ctrl:
-            supabase.table("weekly_questions").delete().eq(
-                "week_number", 998
-            ).execute()
-            supabase.table("weekly_questions").insert({
-                "week_number": 998,
-                "question_number": 99,
-                "question_text": "SIGNIN LOCK SETTING",
-                "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
-            }).execute()
-
-            supabase.table("weekly_questions").delete().eq(
-                "week_number", 997
-            ).execute()
-            supabase.table("weekly_questions").insert({
-                "week_number": 997,
-                "question_number": 99,
-                "question_text": "SIGNUP LOCK SETTING",
-                "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
-            }).execute()
-
-            st.cache_data.clear()
-            st.success("App access controls successfully updated!")
-            st.rerun()
+          st.cache_data.clear()
+          st.success("App access controls successfully updated!")
+          st.rerun()
