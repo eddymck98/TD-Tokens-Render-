@@ -108,8 +108,9 @@ def get_supabase_client() -> Client:
 
 supabase = get_supabase_client()
 
-# --- HANDLE QUERY PARAMS FOR PASSWORD RESET / RECOVERY ---
+# --- ROBUST HANDLE QUERY & HASH PARAMS FOR PASSWORD RECOVERY ---
 query_params = st.query_params
+
 if "type" in query_params and query_params["type"] == "recovery":
   st.session_state["is_password_recovery"] = True
 elif "access_token" in query_params:
@@ -121,6 +122,25 @@ elif "access_token" in query_params:
     st.query_params.clear()
   except Exception:
     pass
+
+st.markdown(
+    """
+    <script>
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token') || accessToken;
+        const type = hashParams.get('type');
+        
+        if (type === 'recovery' || accessToken) {
+            const newUrl = window.location.pathname + '?access_token=' + accessToken + '&refresh_token=' + refreshToken + '&type=recovery';
+            window.location.replace(newUrl);
+        }
+    }
+    </script>
+""",
+    unsafe_allow_html=True,
+)
 
 # --- SECURE COOKIE-BASED AUTH PERSISTENCE ---
 if "user" not in st.session_state or st.session_state.user is None:
@@ -1582,7 +1602,6 @@ if st.session_state.get("is_password_recovery", False):
 elif st.session_state.user is None:
   st.title("Touchdown Tokens")
 
-  # Check if we just completed a successful signup flow to display the clean confirmation card
   if st.session_state.get("signup_success_email"):
     success_email_val = st.session_state["signup_success_email"]
     st.markdown(
@@ -1691,25 +1710,21 @@ elif st.session_state.user is None:
                     recovery_link = response.properties.get("action_link")
 
                   if recovery_link:
-                    # Enhanced professional branded password reset email template
                     html_content = f"""
                             <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
                                 <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                                     
-                                    <!-- Header / Logo Area -->
                                     <div style="text-align: center; margin-bottom: 30px;">
                                         <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px; filter: drop-shadow(0px 6px 15px rgba(251, 191, 36, 0.4));" />
                                         <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
                                         <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Password Reset Request</p>
                                     </div>
 
-                                    <!-- Body Content -->
                                     <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 15px;">Reset Your Password 🔑</h3>
                                     <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
                                         We received a request to reset your Touchdown Tokens password. Click the secure button below to choose a brand new password for your account:
                                     </p>
 
-                                    <!-- Action Button -->
                                     <div style="text-align: center; margin: 35px 0;">
                                         <a href="{recovery_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block; box-shadow: 0 6px 20px rgba(251, 191, 36, 0.3);">RESET PASSWORD</a>
                                     </div>
