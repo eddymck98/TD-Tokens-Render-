@@ -1547,15 +1547,15 @@ if st.session_state.user is None:
         <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.15); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 35px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px;">
             <h2 style="color: #fbbf24; font-family: 'Bebas Neue', Arial, sans-serif; font-size: 36px; letter-spacing: 2px; margin-bottom: 10px;">WELCOME TO THE LEAGUE! 🏈</h2>
             <p style="color: #cbd5e1; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                We have successfully created your account and sent a verification email to <b style="color: #38bdf8;">{success_email_val}</b>.
+                We have successfully created your account and sent a verification email with your company logo to <b style="color: #38bdf8;">{success_email_val}</b>.
             </p>
             <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); padding: 18px; border-radius: 12px; margin-bottom: 25px; text-align: left;">
-                <b style="color: #ffffff; font-size: 15px;">Next Steps:</b>
-                <ol style="color: #cbd5e1; font-size: 14px; margin-top: 8px; margin-bottom: 0; padding-left: 20px; line-height: 1.6;">
-                    <li>Check your email inbox (and spam folder just in case).</li>
-                    <li>Click the <b>Authorise Email Address</b> verification link inside the email.</li>
-                    <li>Return here and log in to start locking in your weekly picks and claiming your 10 free tokens!</li>
-                </ol>
+                <b style="color: #ffffff; font-size: 15px;">Next Steps & Useful Links:</b>
+                <ul style="color: #cbd5e1; font-size: 14px; margin-top: 8px; margin-bottom: 0; padding-left: 20px; line-height: 1.6;">
+                    <li>Check your email inbox (and spam folder) for the verification message.</li>
+                    <li>Click the <b>Authorise Email Address</b> verification button inside the email.</li>
+                    <li>Need help or want to review standings? Check out the <a href="https://www.espn.com/nfl/schedule" target="_blank">NFL Schedule</a> or log in once authorized.</li>
+                </ul>
             </div>
         </div>
         """,
@@ -1774,6 +1774,13 @@ if st.session_state.user is None:
 
                   verify_url = "https://tdtokens.co.uk"
                   send_verification_email(signup_email.strip(), verify_url)
+
+                  # IMPORTANT FIX: Immediately sign out the user session returned by Supabase 
+                  # so they are forced to verify their email first instead of being auto-logged in.
+                  try:
+                    supabase.auth.sign_out()
+                  except Exception:
+                    pass
 
                   # Save success state and rerun to cleanly clear the form and display confirmation screen
                   st.session_state.signup_success_email = signup_email.strip()
@@ -5637,7 +5644,7 @@ Good luck this week! 🔥"""
               "week_number", 997
           ).execute()
           supabase.table("weekly_questions").insert({
-              "week_number": 997,
+              "week_number", 997,
               "question_number": 1,
               "question_text": "SIGNUP ACCESS LOCK",
               "winning_answer": signup_status,
