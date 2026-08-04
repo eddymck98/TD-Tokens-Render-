@@ -5823,6 +5823,9 @@ Good luck this week! 🔥"""
 
           signup_status = "LOCKED" if lock_signup_toggle else "OPEN"
           supabase.table("weekly_questions").delete().eq(
+              "week_number", 997
+          ).execute()
+          supabase.table("weekly_questions").insert({
               "week_number": 997,
               "question_number": 1,
               "question_text": "SIGNUP ACCESS LOCK",
@@ -5830,8 +5833,5 @@ Good luck this week! 🔥"""
           }).execute()
 
           st.cache_data.clear()
-          st.success(
-              f"Access settings updated! Sign-In: {signin_status}, Sign-Up:"
-              f" {signup_status}"
-          )
+          st.success("Access control settings saved successfully!")
           st.rerun()
