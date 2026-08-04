@@ -151,24 +151,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SECURE COOKIE-BASED AUTH PERSISTENCE ---
+# --- SUPABASE & AUTH SESSION PERSISTENCE ---
 if "user" not in st.session_state or st.session_state.user is None:
   st.session_state.user = None
   try:
-    saved_token = controller.get("td_tokens_session")
-    if saved_token:
-      user_response = supabase.auth.get_user(saved_token)
-      if user_response and user_response.user:
-        st.session_state.user = user_response.user
-        try:
-          supabase.auth.set_session(saved_token, saved_token)
-        except Exception:
-          pass
-
-    if st.session_state.user is None:
-      current_session = supabase.auth.get_session()
-      if current_session and current_session.user:
-        st.session_state.user = current_session.user
+    current_session = supabase.auth.get_session()
+    if current_session and current_session.user:
+      st.session_state.user = current_session.user
+    else:
+      session_data = supabase.auth.refresh_session()
+      if session_data and session_data.user:
+        st.session_state.user = session_data.user
   except Exception:
     pass
 
