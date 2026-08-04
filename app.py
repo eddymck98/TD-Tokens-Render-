@@ -160,12 +160,12 @@ st.markdown(
 if "user" not in st.session_state or st.session_state.user is None:
   st.session_state.user = None
   
-  # Fetch cookie (None on Frame 1, populates on Frame 2)
-  session_cookie = controller.get("td_tokens_session")
-  
-  if session_cookie:
-    try:
-      # 1. Safely handle both Dictionary and String cookie formats
+  try:
+    # Fetch cookie (None on Frame 1, populates on Frame 2)
+    session_cookie = controller.get("td_tokens_session")
+    
+    if session_cookie:
+      # Safely handle both Dictionary and String cookie formats
       if isinstance(session_cookie, dict):
         acc_token = session_cookie.get("access_token")
         ref_token = session_cookie.get("refresh_token")
@@ -181,7 +181,7 @@ if "user" not in st.session_state or st.session_state.user is None:
         acc_token = None
         ref_token = None
 
-      # 2. Only attempt to restore if we successfully extracted the tokens
+      # Attempt to restore session using refresh token fallback
       if acc_token and ref_token:
         res = supabase.auth.set_session(acc_token, ref_token)
         if res and res.user:
@@ -195,13 +195,16 @@ if "user" not in st.session_state or st.session_state.user is None:
             })
             controller.set("td_tokens_session", new_payload, max_age=2592000)
             
-          # Rerun to seamlessly load the logged-in dashboard
           st.rerun()
-    except Exception as e:
-      # We removed the controller.remove() line here. 
-      # If a temporary API hiccup occurs, it will simply fail gracefully 
-      # instead of permanently wiping out your login cookie.
-      pass
+  except Exception:
+    pass
+
+
+if "form_refresh" not in st.session_state:
+  st.session_state.form_refresh = 0
+
+if "signup_success_email" not in st.session_state:
+  st.session_state.signup_success_email = None
 
 
 # --- CACHED HELPERS FOR ADMIN & PERFORMANCE ---
@@ -291,80 +294,6 @@ def get_true_global_token_balance(target_user_id):
     return max(0, curr_tokens)
   except Exception:
     return 10
-
-
-# --- ROBUST TOKEN RECALCULATOR ---
-def recalculate_all_user_balances(supabase_client):
-  admin_supabase = supabase_client
-  try:
-    service_key = os.environ.get("SUPABASE_SERVICE_KEY", "") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
-    url = os.environ.get("SUPABASE_URL", "") or st.secrets.get("SUPABASE_URL", "")
-    if service_key and url:
-      admin_supabase = create_client(url, service_key)
-  except Exception:
-    pass
-
-  all_users = (
-      admin_supabase.table("profiles").select("id, full_name, tokens").execute().data
-  )
-  if not all_users:
-    return
-
-  closed_week_rows = (
-      admin_supabase.table("weekly_questions")
-      .select("week_number")
-      .eq("question_number", 96)
-      .eq("winning_answer", "CLOSED")
-      .execute()
-      .data
-  )
-  closed_weeks = [r["week_number"] for r in closed_week_rows]
-
-  if not closed_weeks:
-    return
-
-  all_bets = admin_supabase.table("user_bets").select("*").execute().data
-  all_questions = (
-      admin_supabase.table("weekly_questions")
-      .select("id, week_number, winning_answer")
-      .execute()
-      .data
-  )
-  all_tds = admin_supabase.table("touchdown_picks").select("*").execute().data
-
-  q_map = {
-      q["id"]: str(q.get("winning_answer", "")).strip() for q in all_questions
-  }
-  user_net_changes = {u["id"]: 0 for u in all_users}
-
-  for b in all_bets:
-    w_num = b.get("week_number")
-    if w_num in closed_weeks:
-      uid = b["user_id"]
-      q_id = b.get("question_id")
-      wager = int(b.get("wager_amount", 0))
-      pick = str(b.get("pick", "")).strip().lower()
-      w_ans = q_map.get(q_id, "").lower()
-
-      if uid in user_net_changes and w_ans in ["yes", "no"]:
-        if pick == w_ans:
-          user_net_changes[uid] += wager
-        else:
-          user_net_changes[uid] -= wager
-
-  for td in all_tds:
-    w_num = td.get("week_number")
-    if w_num in closed_weeks:
-      uid = td["user_id"]
-      is_c = td.get("is_correct")
-      if uid in user_net_changes and str(is_c).lower() == "true":
-        user_net_changes[uid] += 5
-
-  for uid, net_change in user_net_changes.items():
-    final_balance = max(0, 10 + net_change)
-    admin_supabase.table("profiles").update({"tokens": final_balance}).eq(
-        "id", uid
-    ).execute()
 
 
 @st.cache_data
@@ -1527,8 +1456,8 @@ def calculate_streak(target_user_id):
     return "0W"
 
 
-@st.cache_data(ttl=60)
-def get_cached_leaderboard_stats(allowed_peer_ids=None):
+@st.cache_data(ttl=30)
+def get_cached_leaderboard_stats(allowed_peer_ids=None, selected_league_id=None):
   leader_res = get_cached_profiles()
   stats = []
   if not leader_res:
@@ -1538,7 +1467,18 @@ def get_cached_leaderboard_stats(allowed_peer_ids=None):
     if allowed_peer_ids is not None and p["id"] not in allowed_peer_ids:
       continue
 
-    true_global_tokens = get_true_global_token_balance(p["id"])
+    if selected_league_id and selected_league_id != "00000000-0000-0000-0000-000000000001":
+      mb_res = (
+          supabase.table("mini_league_balances")
+          .select("tokens")
+          .eq("league_id", selected_league_id)
+          .eq("user_id", p["id"])
+          .execute()
+          .data
+      )
+      true_global_tokens = mb_res[0]["tokens"] if mb_res else 10
+    else:
+      true_global_tokens = get_true_global_token_balance(p["id"])
 
     correct_tds = (
         supabase.table("touchdown_picks")
@@ -1876,7 +1816,7 @@ elif st.session_state.user is None:
 
                       **4. Code of Conduct & Community Standards**  
                       • *Acceptable Use:* Users must utilize the Platform in a respectful, lawful, and sportsmanlike manner.  
-                      • *Prohibited Conduct:* Harassment, hate speech, threats, collusion, cheating, match-fixing, or attempting to compromise database security is strictly prohibited.  
+                      • *Prohibited Conduct:* Harassment, hate speech, threats, collusion, cheating, match-fixing, or attempting to database security is strictly prohibited.  
                       • *Enforcement:* Administrators reserve the right to moderate content, deduct tokens, suspend accounts, or permanently terminate access for violations without prior notice.
 
                       **5. Intellectual Property Rights**  
@@ -2251,7 +2191,6 @@ else:
   # TAB 0: REDESIGNED HOME SCREEN
   # ------------------------------------------
   with tab_home:
-    # 1. High-Impact Hero Banner Section
     st.markdown(
         f"""
         <div class="hero-banner">
@@ -2314,7 +2253,6 @@ else:
             f"🏈 *{profile['full_name']} - Week {view_week} Lock-Ins* 🏈"
         ]
 
-        # 2. Modernized Interactive Cards Layout for Picks
         for b in curr_user_bets:
           q_num = b.get("weekly_questions", {}).get("question_number", "?")
           q_txt = (
@@ -3120,7 +3058,7 @@ else:
             """)
 
   # ------------------------------------------
-  # TAB 3: PLACE BETS (REDESIGNED FOR CLEANER & COOLER LOOK)
+  # TAB 3: PLACE BETS
   # ------------------------------------------
   with tab_bet:
     st.markdown(
@@ -3705,7 +3643,6 @@ else:
       )
       my_league_ids = [m["league_id"] for m in my_league_memberships] if my_league_memberships else []
 
-      # --- REQUIREMENT CHECK: Restrict rival options strictly to members in shared leagues ---
       league_peers_res = (
           supabase.table("league_members")
           .select("user_id, profiles(id, full_name, favorite_team, avatar_emoji)")
@@ -3979,7 +3916,8 @@ else:
         )
 
       filtered_player_stats = get_cached_leaderboard_stats(
-          allowed_peer_ids=allowed_peer_ids
+          allowed_peer_ids=allowed_peer_ids,
+          selected_league_id=selected_league_filter_id
       )
 
       if not filtered_player_stats:
@@ -4736,7 +4674,6 @@ else:
 
         st.write("")
 
-        # Fetch fresh members directly without relying purely on cache
         members_res = (
             supabase.table("league_members")
             .select("user_id, profiles(full_name, tokens, favorite_team)")
@@ -4795,7 +4732,7 @@ else:
         ):
           st.caption(
               "Add, subtract, or set exact token balances for members in this"
-              " league."
+              " mini-league."
           )
           if members_res:
             with st.form(f"token_adj_form_{l_id}"):
@@ -4822,17 +4759,17 @@ else:
               if submit_comm_adjust:
                 try:
                   t_uid = all_m_map[target_member_name]
-                  curr_user_prof = (
-                      supabase.table("profiles")
+                  
+                  existing_bal_res = (
+                      supabase.table("mini_league_balances")
                       .select("tokens")
-                      .eq("id", t_uid)
-                      .single()
+                      .eq("league_id", l_id)
+                      .eq("user_id", t_uid)
                       .execute()
                       .data
                   )
-                  curr_toks = (
-                      curr_user_prof.get("tokens", 10) if curr_user_prof else 10
-                  )
+                  
+                  curr_toks = existing_bal_res[0]["tokens"] if existing_bal_res else 10
 
                   if token_adj_mode == "Add Tokens":
                     new_toks = curr_toks + token_adj_val
@@ -4841,18 +4778,20 @@ else:
                   else:
                     new_toks = token_adj_val
 
-                  supabase.table("profiles").update({"tokens": new_toks}).eq(
-                      "id", t_uid
-                  ).execute()
+                  supabase.table("mini_league_balances").upsert({
+                      "league_id": l_id,
+                      "user_id": t_uid,
+                      "tokens": new_toks
+                  }, on_conflict="league_id,user_id").execute()
                   
                   st.cache_data.clear()
                   st.success(
-                      f"Successfully updated {target_member_name}'s balance to"
+                      f"Successfully updated {target_member_name}'s balance in {l_name} to"
                       f" {new_toks} tokens!"
                   )
                   st.rerun()
                 except Exception as e:
-                  st.error(f"Error updating tokens: {e}")
+                  st.error(f"Error updating mini-league tokens: {e}")
           else:
             st.info("No members in this league.")
 
@@ -5779,42 +5718,42 @@ The matchup slate is locked and loaded! Head over to the app now to lock in your
                       .select("unlocked_badges")
                       .eq("id", overall_champ_id)
                       .single()
-                      .execute()
-                      .data
-                  )
-                  if champ_prof_data:
-                    ub = champ_prof_data.get("unlocked_badges", [])
-                    if not isinstance(ub, list):
-                      ub = []
-                    if "🏆 League Champion" not in ub:
-                      ub.append("🏆 League Champion")
-                      supabase.table("profiles").update({
-                          "unlocked_badges": ub,
-                          "selected_title": "👑 League Champion",
-                      }).eq("id", overall_champ_id).execute()
+                  .execute()
+                  .data
+              )
+              if champ_prof_data:
+                ub = champ_prof_data.get("unlocked_badges", [])
+                if not isinstance(ub, list):
+                  ub = []
+                if "🏆 League Champion" not in ub:
+                  ub.append("🏆 League Champion")
+                  supabase.table("profiles").update({
+                      "unlocked_badges": ub,
+                      "selected_title": "👑 League Champion",
+                  }).eq("id", overall_champ_id).execute()
 
-                supabase.table("archived_seasons").insert({
-                    "league_id": "00000000-0000-0000-0000-000000000001",
-                    "season_label": season_title_input.strip(),
-                    "standings_json": all_p_sorted,
-                }).execute()
+            supabase.table("archived_seasons").insert({
+                "league_id": "00000000-0000-0000-0000-000000000001",
+                "season_label": season_title_input.strip(),
+                "standings_json": all_p_sorted,
+            }).execute()
 
-                if reset_tokens_checkbox:
-                  for p_item in all_p_snapshot:
-                    supabase.table("profiles").update({"tokens": 10}).eq(
-                        "id", p_item["id"]
-                    ).execute()
+            if reset_tokens_checkbox:
+              for p_item in all_p_snapshot:
+                supabase.table("profiles").update({"tokens": 10}).eq(
+                    "id", p_item["id"]
+                ).execute()
 
-                st.cache_data.clear()
-                st.balloons()
-                st.success(
-                    f"Successfully archived '{season_title_input}' into the"
-                    " global Hall of Fame!"
-                    f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
-                )
-                st.rerun()
-              except Exception as e:
-                st.error(f"Error archiving season: {e}")
+            st.cache_data.clear()
+            st.balloons()
+            st.success(
+                f"Successfully archived '{season_title_input}' into the"
+                " global Hall of Fame!"
+                f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
+            )
+            st.rerun()
+          except Exception as e:
+            st.error(f"Error archiving season: {e}")
 
       elif admin_sec == "App Access Control":
         st.subheader("🔒 App-Wide Sign-In & Sign-Up Lock Controls")
