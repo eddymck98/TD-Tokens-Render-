@@ -3114,7 +3114,7 @@ else:
             """)
 
   # ------------------------------------------
-  # TAB 3: PLACE BETS
+  # TAB 3: PLACE BETS (UPGRADED WITH COLLAPSIBLE CARDS & QUICK CHIPS)
   # ------------------------------------------
   with tab_bet:
     st.markdown(
@@ -3122,7 +3122,7 @@ else:
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
                 <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 38px; color: #ffffff; letter-spacing: 2px; margin: 0;">WEEKLY PREDICTIONS & WAGERS</h2>
-                <p style="color: #94a3b8; font-size: 14px; margin: 0;">Lock in your predictions, assign your token stakes, and rise up the leaderboard.</p>
+                <p style="color: #94a3b8; font-size: 14px; margin: 0;">Expand matchups, lock in your predictions, and assign your token stakes.</p>
             </div>
             <div>
                 <a href="https://www.espn.com/nfl/schedule" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255, 255, 255, 0.2); border-left: 4px solid #38bdf8; color: #ffffff !important; padding: 10px 18px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1.2px; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s ease;">
@@ -3323,7 +3323,7 @@ else:
                 """
                 <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #fbbf24; padding: 14px 18px; border-radius: 12px; margin-bottom: 20px;">
                     <b style="color: #fff; font-size: 15px;">MATCHUP PREDICTION SLATE</b>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Select YES or No for each game scenario below and allocate your token stakes carefully.</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Expand the match cards below to configure your picks and assign token wagers.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3360,50 +3360,46 @@ else:
 
               pick_index = 0 if default_pick_val == "Yes" else 1
 
-              st.markdown(
-                  f"""
-                  <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
-                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                          <span style="font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: {user_team_color}; letter-spacing: 1px;">QUESTION {q['question_number']}</span>
-                          <div style="display: flex; align-items: center; gap: 8px;">
-                              <img src="{away_info['logo']}" style="width: 20px; height: 20px;" />
-                              <span style="font-size: 12px; color: #cbd5e1; font-weight: 600;">{away_team_name}</span>
-                              <span style="color: #64748b;">@</span>
-                              <img src="{home_info['logo']}" style="width: 20px; height: 20px;" />
-                              <span style="font-size: 12px; color: #cbd5e1; font-weight: 600;">{home_team_name}</span>
-                          </div>
-                      </div>
-                      <div style="font-size: 15px; font-weight: 600; color: #ffffff; margin-bottom: 14px; line-height: 1.4;">{prompt_text}</div>
-                  """,
-                  unsafe_allow_html=True,
-              )
-
-              col_pick, col_wager = st.columns(2)
-              with col_pick:
-                picks[q["id"]] = st.radio(
-                    f"Pick Q{q['question_number']}",
-                    ["Yes", "No"],
-                    index=pick_index,
-                    key=(
-                        f"pick_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
-                    ),
-                    horizontal=True,
-                    disabled=is_locked,
-                    label_visibility="collapsed",
-                )
-              with col_wager:
-                wagers[q["id"]] = st.number_input(
-                    f"Wager Q{q['question_number']} Tokens",
-                    min_value=0,
-                    max_value=true_global_tokens_bet,
-                    value=default_wager_val,
-                    key=(
-                        f"wager_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
-                    ),
-                    disabled=is_locked,
+              expander_label = f"Matchup Q{q['question_number']}: {away_team_name} @ {home_team_name} (Wager: {default_wager_val} 🪙)"
+              with st.expander(expander_label, expanded=False):
+                st.markdown(
+                    f"""
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px; background: rgba(30, 41, 59, 0.4); border-radius: 10px;">
+                        <img src="{away_info['logo']}" style="width: 24px; height: 24px;" />
+                        <span style="font-size: 13px; color: #cbd5e1; font-weight: bold;">{away_team_name}</span>
+                        <span style="color: #64748b;">@</span>
+                        <img src="{home_info['logo']}" style="width: 24px; height: 24px;" />
+                        <span style="font-size: 13px; color: #cbd5e1; font-weight: bold;">{home_team_name}</span>
+                    </div>
+                    <div style="font-size: 15px; font-weight: 600; color: #ffffff; margin-bottom: 14px; line-height: 1.4;">{prompt_text}</div>
+                    """,
+                    unsafe_allow_html=True,
                 )
 
-              st.markdown("</div>", unsafe_allow_html=True)
+                col_pick, col_wager = st.columns(2)
+                with col_pick:
+                  picks[q["id"]] = st.radio(
+                      f"Pick Q{q['question_number']}",
+                      ["Yes", "No"],
+                      index=pick_index,
+                      key=(
+                          f"pick_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
+                      ),
+                      horizontal=True,
+                      disabled=is_locked,
+                      label_visibility="collapsed",
+                  )
+                with col_wager:
+                  wagers[q["id"]] = st.number_input(
+                      f"Wager Q{q['question_number']} Tokens",
+                      min_value=0,
+                      max_value=true_global_tokens_bet,
+                      value=default_wager_val,
+                      key=(
+                          f"wager_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
+                      ),
+                      disabled=is_locked,
+                  )
 
             st.markdown(
                 """
@@ -4786,7 +4782,7 @@ else:
           st.caption("Remove players from your league roster if necessary.")
           if members_res:
             member_names_map = {
-                m.get("profiles", {}).get("full_name", "Unknown Player"): m[
+                m.get("profiles", {}).get("full_name", "Unknown"): m[
                     "user_id"
                 ]
                 for m in members_res
@@ -4811,8 +4807,7 @@ else:
                 if submit_kick:
                   if not confirm_kick:
                     st.warning(
-                        f"Please check the confirmation box to remove"
-                        f" {target_kick_name}."
+                        "Please check the confirmation box to remove the selected member."
                     )
                   else:
                     try:
