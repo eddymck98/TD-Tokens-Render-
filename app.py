@@ -5612,7 +5612,7 @@ else:
                       .data
                   )
                   if champ_prof_data:
-                  ub = champ_prof_data.get("unlocked_badges", [])
+                    ub = champ_prof_data.get("unlocked_badges", [])
                   if not isinstance(ub, list):
                     ub = []
                   if "🏆 League Champion" not in ub:
