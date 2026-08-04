@@ -108,6 +108,20 @@ def get_supabase_client() -> Client:
 
 supabase = get_supabase_client()
 
+# --- HANDLE QUERY PARAMS FOR PASSWORD RESET / RECOVERY ---
+query_params = st.query_params
+if "type" in query_params and query_params["type"] == "recovery":
+  st.session_state["is_password_recovery"] = True
+elif "access_token" in query_params:
+  try:
+    access_token = query_params["access_token"]
+    refresh_token = query_params.get("refresh_token", access_token)
+    supabase.auth.set_session(access_token, refresh_token)
+    st.session_state["is_password_recovery"] = True
+    st.query_params.clear()
+  except Exception:
+    pass
+
 # --- SECURE COOKIE-BASED AUTH PERSISTENCE ---
 if "user" not in st.session_state or st.session_state.user is None:
   st.session_state.user = None
@@ -1532,9 +1546,40 @@ except Exception:
   pass
 
 # ==========================================
+# 0. PASSWORD RECOVERY / RESET SCREEN INTERCEPT
+# ==========================================
+if st.session_state.get("is_password_recovery", False):
+  st.title("Touchdown Tokens")
+  st.subheader("🔑 Set a New Password")
+  st.caption("Please choose a secure new password for your account.")
+
+  with st.form("password_recovery_screen_form"):
+    new_p1 = st.text_input("New Password (min 6 chars)", type="password")
+    new_p2 = st.text_input("Confirm New Password", type="password")
+    submit_new_pass = st.form_submit_button("Update Password & Log In 🚀", type="primary")
+
+    if submit_new_pass:
+      if len(new_p1) < 6:
+        st.warning("Password must be at least 6 characters long.")
+      elif new_p1 != new_p2:
+        st.error("Passwords do not match.")
+      else:
+        try:
+          supabase.auth.update_user({"password": new_p1})
+          st.session_state["is_password_recovery"] = False
+          st.success("Password updated successfully! You can now log in.")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Failed to update password: {e}")
+
+  if st.button("Cancel & Return to Login"):
+    st.session_state["is_password_recovery"] = False
+    st.rerun()
+
+# ==========================================
 # 1. LOGIN & SIGNUP SCREEN WITH RESEND EMAIL
 # ==========================================
-if st.session_state.user is None:
+elif st.session_state.user is None:
   st.title("Touchdown Tokens")
 
   # Check if we just completed a successful signup flow to display the clean confirmation card
@@ -1628,7 +1673,6 @@ if st.session_state.user is None:
           if st.button("Send Reset Link"):
             if reset_email:
               try:
-                # Use admin client with service role key to generate password recovery link
                 admin_supabase = supabase
                 service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
                 url = os.environ.get("SUPABASE_URL", "")
@@ -1640,7 +1684,6 @@ if st.session_state.user is None:
                     {"type": "recovery", "email": reset_email.strip()}
                 )
 
-                # Fix: Access properties correctly via attribute or check if action_link is present
                 if response and hasattr(response, "properties") and response.properties:
                   recovery_link = getattr(response.properties, "action_link", None)
                   
@@ -1648,28 +1691,35 @@ if st.session_state.user is None:
                     recovery_link = response.properties.get("action_link")
 
                   if recovery_link:
+                    # Enhanced professional branded password reset email template
                     html_content = f"""
                             <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
                                 <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                                     
+                                    <!-- Header / Logo Area -->
                                     <div style="text-align: center; margin-bottom: 30px;">
-                                        <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px;" />
+                                        <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px; filter: drop-shadow(0px 6px 15px rgba(251, 191, 36, 0.4));" />
                                         <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
                                         <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Password Reset Request</p>
                                     </div>
 
+                                    <!-- Body Content -->
                                     <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 15px;">Reset Your Password 🔑</h3>
                                     <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                                        We received a request to reset your Touchdown Tokens password. Click the button below to choose a new password:
+                                        We received a request to reset your Touchdown Tokens password. Click the secure button below to choose a brand new password for your account:
                                     </p>
 
+                                    <!-- Action Button -->
                                     <div style="text-align: center; margin: 35px 0;">
-                                        <a href="{recovery_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block;">RESET PASSWORD</a>
+                                        <a href="{recovery_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block; box-shadow: 0 6px 20px rgba(251, 191, 36, 0.3);">RESET PASSWORD</a>
                                     </div>
 
                                     <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
-                                        If you did not request a password reset, you can safely ignore this email.
+                                        If you did not request a password reset, you can safely ignore and delete this email. Your account remains completely secure.
                                     </p>
+                                </div>
+                                <div style="text-align: center; margin-top: 20px; color: #64748b; font-size: 12px;">
+                                    &copy; 2026 Touchdown Tokens. All rights reserved.
                                 </div>
                             </div>
                             """
@@ -4430,26 +4480,71 @@ else:
     st.subheader("🔐 Account Security")
 
     with st.form("settings_password_form"):
-      st.markdown("##### Change Password")
-      new_pass1 = st.text_input(
-          "New Password (min 6 chars)", type="password", key="settings_new_pass1"
-      )
-      new_pass2 = st.text_input(
-          "Confirm New Password", type="password", key="settings_new_pass2"
-      )
+      st.markdown("##### Request Password Reset Email")
+      st.caption("Send a secure password reset link directly to your registered email address.")
+      
+      submit_pass_reset_email = st.form_submit_button("Send Password Reset Email 🔑", type="primary")
+      if submit_pass_reset_email:
+        try:
+          user_email_addr = st.session_state.user.email
+          admin_supabase = supabase
+          service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+          url = os.environ.get("SUPABASE_URL", "")
+          
+          if service_key and url:
+            admin_supabase = create_client(url, service_key)
 
-      submit_pass = st.form_submit_button("Update Password 🔑")
-      if submit_pass:
-        if len(new_pass1) < 6:
-          st.warning("Password must be at least 6 characters long.")
-        elif new_pass1 != new_pass2:
-          st.error("Passwords do not match.")
-        else:
-          try:
-            supabase.auth.update_user({"password": new_pass1})
-            st.success("Password updated successfully!")
-          except Exception as e:
-            st.error(f"Error updating password: {e}")
+          response = admin_supabase.auth.admin.generate_link(
+              {"type": "recovery", "email": user_email_addr}
+          )
+
+          if response and hasattr(response, "properties") and response.properties:
+            recovery_link = getattr(response.properties, "action_link", None)
+            
+            if not recovery_link and isinstance(response.properties, dict):
+              recovery_link = response.properties.get("action_link")
+
+            if recovery_link:
+              html_content = f"""
+                      <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
+                          <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                              
+                              <div style="text-align: center; margin-bottom: 30px;">
+                                  <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px; filter: drop-shadow(0px 6px 15px rgba(251, 191, 36, 0.4));" />
+                                  <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
+                                  <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Password Reset Request</p>
+                              </div>
+
+                              <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 15px;">Reset Your Password 🔑</h3>
+                              <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                                  We received a request to reset your Touchdown Tokens password from your account settings. Click the button below to choose a new password:
+                              </p>
+
+                              <div style="text-align: center; margin: 35px 0;">
+                                  <a href="{recovery_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block; box-shadow: 0 6px 20px rgba(251, 191, 36, 0.3);">RESET PASSWORD</a>
+                              </div>
+
+                              <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+                                  If you did not request a password reset, you can safely ignore this email.
+                              </p>
+                          </div>
+                      </div>
+                      """
+
+              params = {
+                  "from": "Touchdown Tokens <noreply@auth.tdtokens.co.uk>",
+                  "to": [user_email_addr],
+                  "subject": "🔑 Reset Your Touchdown Tokens Password",
+                  "html": html_content,
+              }
+              resend.Emails.send(params)
+              st.success("Password reset email sent to your inbox!")
+            else:
+              st.error("Could not retrieve recovery link properties from the response.")
+          else:
+            st.error("Could not generate recovery link for this email.")
+        except Exception as e:
+          st.error(f"Error sending password reset email: {e}")
 
     with st.form("settings_email_form"):
       st.markdown("##### Change Registered Email")
