@@ -553,6 +553,40 @@ BORDER_STYLE_OPTIONS = {
     "Groove Outlined": "inset",
 }
 
+MASTER_BADGES = {
+    "🚀 Token Tycoon": "Accumulate 50+ lifetime tokens earned across your career",
+    "🎯 High Roller": "Wager 10+ tokens on a single question",
+    "⚡ Double Down Legend": "Wager 15+ total tokens in a single week",
+    "💣 All-In Maverick": "Wager 100% of your remaining token balance on a slate",
+    "🏈 TD Guru": "Correctly predict 5+ Touchdown Scorers",
+    "🎯 Sniper": "Correctly predict 9+ Touchdown Scorers across the season",
+    "👑 Weekly High Scorer": "Win the most net tokens in a single week",
+    "🎯 Perfect 10/10": "Correctly answer all 10 scenarios in a single week",
+    "🧊 Clutch Gene": (
+        "Win a scenario where 75%+ of the league picked the wrong side"
+    ),
+    "🛡️ Iron Defender": "Submit bets for 5 or more weeks without missing",
+    "💰 Century Club": "Accumulate 100+ total cumulative tokens won across history",
+    "📉 Wall Street Bets": "Take the largest token loss in a single week",
+    "📉 Down Bad": "Reach a token balance of 0 tokens",
+    "🏆 League Champion": "Be crowned the official end-of-season League Champion",
+    "⭐ League Commissioner": "Create or administer a custom mini-league",
+    "🔮 Oracle of Delphi": (
+        "Successfully call a 5+ token wager correctly 4 weeks in a row"
+    ),
+    "🔥 Untouchable Run": "Gain 20+ net tokens in a single weekly slate",
+    "⚡ Gridiron Prophet": (
+        "Correctly predict 13+ Touchdown Scorers across the season"
+    ),
+    "💎 Diamond Hands": (
+        "Survive with fewer than 3 tokens remaining and bounce back to 30+"
+    ),
+    "🛡️ Mini-League Monarch": "Finish 1st place in any active mini-league standing",
+    "🌟 Gridiron General": "Maintain a 70%+ win rate across 20+ total bets in your mini-league",
+    "🎯 Pick Six Prodigy": "Correctly predict a Touchdown Scorer on 3 consecutive weeks",
+    "🎩 Commissioner's Right Hand": "Be an active member of 3+ custom mini-leagues",
+}
+
 AVAILABLE_TITLES = {
     "🏈 Gridiron Contender": {
         "badge": None,
@@ -572,54 +606,28 @@ AVAILABLE_TITLES = {
     },
     "💰 Token Tycoon": {
         "badge": "🚀 Token Tycoon",
-        "req": "Reach a balance of 30+ tokens.",
+        "req": "Accumulate 50+ lifetime tokens earned.",
     },
     "⚡ Gridiron Prophet": {
         "badge": "⚡ Gridiron Prophet",
-        "req": "Correctly predict 5+ Touchdown Scorers across the season.",
+        "req": "Correctly predict 13+ Touchdown Scorers across the season.",
     },
     "🎯 Sharp Shooter": {
         "badge": "🎯 Sniper",
-        "req": "Correctly predict 3+ Touchdown Scorers across the season.",
+        "req": "Correctly predict 9+ Touchdown Scorers across the season.",
     },
     "🏈 TD Specialist": {
         "badge": "🏈 TD Guru",
-        "req": "Correctly predict 2+ Touchdown Scorers.",
+        "req": "Correctly predict 5+ Touchdown Scorers.",
+    },
+    "🛡️ Mini-League Monarch": {
+        "badge": "🛡️ Mini-League Monarch",
+        "req": "Finish in 1st place in any active mini-league.",
     },
     "📉 Bankrupt Gambler": {
         "badge": "📉 Down Bad",
         "req": "Reach a token balance of 0 tokens.",
     },
-}
-
-MASTER_BADGES = {
-    "🚀 Token Tycoon": "Reach a balance of 30+ tokens",
-    "🎯 High Roller": "Wager 10+ tokens on a single question",
-    "⚡ Double Down Legend": "Wager 15+ total tokens in a single week",
-    "💣 All-In Maverick": "Wager 100% of your remaining token balance on a slate",
-    "🏈 TD Guru": "Correctly predict 2+ Touchdown Scorers",
-    "🎯 Sniper": "Correctly predict 3+ Touchdown Scorers across the season",
-    "👑 Weekly High Scorer": "Win the most net tokens in a single week",
-    "🎯 Perfect 10/10": "Correctly answer all 10 scenarios in a single week",
-    "🧊 Clutch Gene": (
-        "Win a scenario where 75%+ of the league picked the wrong side"
-    ),
-    "🛡️ Iron Defender": "Submit bets for 5 or more weeks without missing",
-    "💰 Century Club": "Accumulate 100+ total cumulative tokens won across history",
-    "📉 Wall Street Bets": "Take the largest token loss in a single week",
-    "📉 Down Bad": "Reach a token balance of 0 tokens",
-    "🏆 League Champion": "Be crowned the official end-of-season League Champion",
-    "⭐ League Commissioner": "Create or administer a custom mini-league",
-    "🔮 Oracle of Delphi": (
-        "Successfully call a 5+ token wager correctly 4 weeks in a row"
-    ),
-    "🔥 Untouchable Run": "Gain 20+ net tokens in a single weekly slate",
-    "⚡ Gridiron Prophet": (
-        "Correctly predict 5+ Touchdown Scorers across the season"
-    ),
-    "💎 Diamond Hands": (
-        "Survive with fewer than 3 tokens remaining and bounce back to 30+"
-    ),
 }
 
 DEFAULT_QUESTION_TEMPLATES = [
@@ -1119,6 +1127,7 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
       .select("*")
       .eq("user_id", target_user_id)
       .eq("is_correct", True)
+      .order("week_number")
       .execute()
       .data
   )
@@ -1135,18 +1144,41 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
   if my_administered or p_data.get("is_admin"):
     newly_earned.add("⭐ League Commissioner")
 
-  if toks >= 30:
-    newly_earned.add("🚀 Token Tycoon")
   if any(b["wager_amount"] >= 10 for b in u_bets):
     newly_earned.add("🎯 High Roller")
-  if len(u_td) >= 2:
-    newly_earned.add("🏈 TD Guru")
-  if len(u_td) >= 3:
-    newly_earned.add("🎯 Sniper")
   if len(u_td) >= 5:
+    newly_earned.add("🏈 TD Guru")
+  if len(u_td) >= 9:
+    newly_earned.add("🎯 Sniper")
+  if len(u_td) >= 13:
     newly_earned.add("⚡ Gridiron Prophet")
   if toks == 0:
     newly_earned.add("📉 Down Bad")
+
+  my_joined_leagues = (
+      supabase.table("league_members")
+      .select("league_id")
+      .eq("user_id", target_user_id)
+      .execute()
+      .data
+  )
+  joined_l_ids = [m["league_id"] for m in my_joined_leagues] if my_joined_leagues else []
+
+  if len(joined_l_ids) >= 3:
+    newly_earned.add("🎩 Commissioner's Right Hand")
+
+  if u_td:
+    correct_weeks = sorted([td["week_number"] for td in u_td])
+    consec_count = 1
+    max_consec = 1
+    for i in range(1, len(correct_weeks)):
+      if correct_weeks[i] == correct_weeks[i - 1] + 1:
+        consec_count += 1
+        max_consec = max(max_consec, consec_count)
+      else:
+        consec_count = 1
+    if max_consec >= 3:
+      newly_earned.add("🎯 Pick Six Prodigy")
 
   weeks_played = set()
   total_lifetime_won = 0
@@ -1173,6 +1205,9 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
     w_num = td["week_number"]
     if w_num in weekly_nets:
       weekly_nets[w_num]["gains"] += 5
+
+  if total_lifetime_won >= 50:
+    newly_earned.add("🚀 Token Tycoon")
 
   sorted_weeks = sorted(list(weekly_nets.keys()))
   consecutive_oracle_weeks = 0
@@ -1210,6 +1245,28 @@ def sync_and_get_user_badges(target_user_id, check_celebration=False):
     newly_earned.add("🛡️ Iron Defender")
   if total_lifetime_won >= 100:
     newly_earned.add("💰 Century Club")
+
+  for l_id in joined_l_ids:
+    if l_id == "00000000-0000-0000-0000-000000000001":
+      continue
+    league_members_res = (
+        supabase.table("league_members")
+        .select("user_id")
+        .eq("league_id", l_id)
+        .execute()
+        .data
+    )
+    peer_ids = [m["user_id"] for m in league_members_res] if league_members_res else []
+    if peer_ids:
+      mini_stats = get_cached_leaderboard_stats(allowed_peer_ids=set(peer_ids))
+      if mini_stats:
+        top_player = mini_stats[0]
+        if top_player["id"] == target_user_id:
+          newly_earned.add("🛡️ Mini-League Monarch")
+
+        my_mini_stat = next((s for s in mini_stats if s["id"] == target_user_id), None)
+        if my_mini_stat and my_mini_stat["win_rate"] >= 70 and my_mini_stat["total_bets"] >= 20:
+          newly_earned.add("🌟 Gridiron General")
 
   graded_q = (
       supabase.table("weekly_questions")
