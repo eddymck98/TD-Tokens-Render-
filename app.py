@@ -1628,6 +1628,7 @@ if st.session_state.user is None:
           if st.button("Send Reset Link"):
             if reset_email:
               try:
+                # Use admin client with service role key to generate password recovery link
                 admin_supabase = supabase
                 service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
                 url = os.environ.get("SUPABASE_URL", "")
@@ -1639,10 +1640,15 @@ if st.session_state.user is None:
                     {"type": "recovery", "email": reset_email.strip()}
                 )
 
-                if response and response.properties:
-                  recovery_link = response.properties.get("action_link")
+                # Fix: Access properties correctly via attribute or check if action_link is present
+                if response and hasattr(response, "properties") and response.properties:
+                  recovery_link = getattr(response.properties, "action_link", None)
+                  
+                  if not recovery_link and isinstance(response.properties, dict):
+                    recovery_link = response.properties.get("action_link")
 
-                  html_content = f"""
+                  if recovery_link:
+                    html_content = f"""
                             <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
                                 <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                                     
@@ -1668,14 +1674,16 @@ if st.session_state.user is None:
                             </div>
                             """
 
-                  params = {
-                      "from": "Touchdown Tokens <noreply@auth.tdtokens.co.uk>",
-                      "to": [reset_email.strip()],
-                      "subject": "🔑 Reset Your Touchdown Tokens Password",
-                      "html": html_content,
-                  }
-                  resend.Emails.send(params)
-                  st.success("Password reset email sent via Resend! Check your inbox.")
+                    params = {
+                        "from": "Touchdown Tokens <noreply@auth.tdtokens.co.uk>",
+                        "to": [reset_email.strip()],
+                        "subject": "🔑 Reset Your Touchdown Tokens Password",
+                        "html": html_content,
+                    }
+                    resend.Emails.send(params)
+                    st.success("Password reset email sent via Resend! Check your inbox.")
+                  else:
+                    st.error("Could not retrieve recovery link properties from the response.")
                 else:
                   st.error("Could not generate recovery link for this email.")
               except Exception as e:
