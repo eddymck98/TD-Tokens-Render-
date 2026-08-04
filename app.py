@@ -5721,7 +5721,7 @@ The matchup slate is locked and loaded! Head over to the app now to lock in your
                   .execute()
                   .data
               )
-              if champ_prof_data:
+              except champ_prof_data:
                 ub = champ_prof_data.get("unlocked_badges", [])
                 if not isinstance(ub, list):
                   ub = []
