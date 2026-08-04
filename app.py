@@ -126,9 +126,9 @@ elif "access_token" in query_params:
 st.markdown(
     """
     <script>
-    if (window.location.hash && window.location.hash.includes('access_token')) {
+    if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
+        const accessToken = hashParams.get('access_token') || '';
         const refreshToken = hashParams.get('refresh_token') || accessToken;
         const type = hashParams.get('type');
         
