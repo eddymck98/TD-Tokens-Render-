@@ -5056,7 +5056,7 @@ else:
             ).eq("question_number", 99).execute()
             supabase.table("weekly_questions").insert({
                 "week_number": lock_week,
-                "question_number", 99,
+                "question_number": 99,
                 "question_text": "WEEK LOCKOUT TIMESTAMP",
                 "winning_answer": f"LOCKTIME:{combined_dt}",
             }).execute()
