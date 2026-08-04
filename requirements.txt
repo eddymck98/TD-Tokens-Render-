@@ -6,3 +6,4 @@ supabase
 gunicorn
 streamlit-cookies-controller
 resend
+json
