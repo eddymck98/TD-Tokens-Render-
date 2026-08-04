@@ -1630,10 +1630,59 @@ if st.session_state.user is None:
           if st.button("Send Reset Link"):
             if reset_email:
               try:
-                supabase.auth.reset_password_for_email(reset_email)
-                st.success("Password reset email sent! Check your inbox.")
+                admin_supabase = supabase
+                service_key = os.environ.get("SUPABASE_SERVICE_KEY") or st.secrets.get(
+                    "SUPABASE_SERVICE_KEY", ""
+                )
+                url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL", "")
+                if service_key and url:
+                  admin_supabase = create_client(url, service_key)
+
+                response = admin_supabase.auth.admin.generate_link(
+                    {"type": "recovery", "email": reset_email.strip()}
+                )
+
+                if response and response.properties:
+                  recovery_link = response.properties.get("action_link")
+
+                  html_content = f"""
+                            <div style="background-color: #0b0f19; padding: 30px; font-family: 'Inter', Arial, sans-serif; color: #f8fafc;">
+                                <div style="max-width: 600px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 4px solid #fbbf24; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                                    
+                                    <div style="text-align: center; margin-bottom: 30px;">
+                                        <img src="https://github.com/eddymck98/TD-Tokens-Render-/blob/main/TD%20Tokens%207.png?raw=true" alt="Touchdown Tokens Logo" style="width: 180px; margin-bottom: 15px;" />
+                                        <h1 style="font-family: 'Bebas Neue', Arial, sans-serif; color: #fbbf24; font-size: 32px; letter-spacing: 2px; margin: 0;">TOUCHDOWN TOKENS</h1>
+                                        <p style="color: #93c5fd; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; margin-top: 5px;">Password Reset Request</p>
+                                    </div>
+
+                                    <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 15px;">Reset Your Password 🔑</h3>
+                                    <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                                        We received a request to reset your Touchdown Tokens password. Click the button below to choose a new password:
+                                    </p>
+
+                                    <div style="text-align: center; margin: 35px 0;">
+                                        <a href="{recovery_link}" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; letter-spacing: 1px; display: inline-block;">RESET PASSWORD</a>
+                                    </div>
+
+                                    <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+                                        If you did not request a password reset, you can safely ignore this email.
+                                    </p>
+                                </div>
+                            </div>
+                            """
+
+                  params = {
+                      "from": "Touchdown Tokens <noreply@auth.tdtokens.co.uk>",
+                      "to": [reset_email.strip()],
+                      "subject": "🔑 Reset Your Touchdown Tokens Password",
+                      "html": html_content,
+                  }
+                  resend.Emails.send(params)
+                  st.success("Password reset email sent via Resend! Check your inbox.")
+                else:
+                  st.error("Could not generate recovery link for this email.")
               except Exception as e:
-                st.error(f"Error sending email: {e}")
+                st.error(f"Error sending password reset email: {e}")
             else:
               st.warning("Please enter your email address.")
 
@@ -1768,14 +1817,11 @@ if st.session_state.user is None:
                   verify_url = "https://tdtokens.co.uk"
                   send_verification_email(signup_email.strip(), verify_url)
 
-                  # IMPORTANT FIX: Immediately sign out the user session returned by Supabase 
-                  # so they are forced to verify their email first instead of being auto-logged in.
                   try:
                     supabase.auth.sign_out()
                   except Exception:
                     pass
 
-                  # Save success state and rerun to cleanly clear the form and display confirmation screen
                   st.session_state.signup_success_email = signup_email.strip()
                   st.rerun()
                 else:
@@ -5274,8 +5320,6 @@ else:
                       {"winning_answer": ans}
                   ).eq("id", q_id).execute()
 
-                for td_id, choice in td_grading_items.items(): # Fixed typo context if needed, wait use td_grading_results
-                  pass
                 for td_id, choice in td_grading_results.items():
                   if choice == "Correct (+5 🪙)":
                     supabase.table("touchdown_picks").update(
