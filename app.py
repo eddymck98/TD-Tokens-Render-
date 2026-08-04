@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Touchdown Tokens",
     page_icon="🏈",
     layout="centered",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # Initialize the persistent cookie controller
@@ -3149,25 +3149,25 @@ else:
             """)
 
   # ------------------------------------------
-  # TAB 3: PLACE BETS
+  # TAB 3: PLACE BETS (REDESIGNED FOR CLEANER & COOLER LOOK)
   # ------------------------------------------
   with tab_bet:
-    st.header("Weekly Predictions & Wagers")
     st.markdown(
-        f"""
-        <div style="margin-bottom: 16px;">
-            <a href="https://www.espn.com/nfl/schedule" target="_blank" style="display: inline-block; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.2); border-left: 4px solid {user_team_color}; color: #ffffff !important; padding: 10px 18px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1.2px; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s ease;">
-                🏈 View NFL Scores, Lines & Fixtures <span style="font-size: 16px; margin-left: 6px; color: #38bdf8;">↗</span>
-            </a>
+        """
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 38px; color: #ffffff; letter-spacing: 2px; margin: 0;">WEEKLY PREDICTIONS & WAGERS</h2>
+                <p style="color: #94a3b8; font-size: 14px; margin: 0;">Lock in your predictions, assign your token stakes, and rise up the leaderboard.</p>
+            </div>
+            <div>
+                <a href="https://www.espn.com/nfl/schedule" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255, 255, 255, 0.2); border-left: 4px solid #38bdf8; color: #ffffff !important; padding: 10px 18px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1.2px; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s ease;">
+                    🏈 ESPN Scoreboard <span style="font-size: 14px; color: #38bdf8;">↗</span>
+                </a>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.caption(
-        "Check real-time odds and matchups on ESPN before locking in your picks"
-        " below."
-    )
-    st.write("")
 
     if not available_weeks:
       st.info(
@@ -3354,10 +3354,14 @@ else:
             wagers = {}
             picks = {}
 
-            st.markdown("### 10 Weekly Questions")
-            st.caption(
-                "Select your pick (Yes/No) and assign your token wagers smoothly"
-                " without interruptions. Hit submit at the bottom when ready!"
+            st.markdown(
+                """
+                <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #fbbf24; padding: 14px 18px; border-radius: 12px; margin-bottom: 20px;">
+                    <b style="color: #fff; font-size: 15px;">MATCHUP PREDICTION SLATE</b>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Select YES or No for each game scenario below and allocate your token stakes carefully.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
             for q in questions:
@@ -3391,60 +3395,59 @@ else:
 
               pick_index = 0 if default_pick_val == "Yes" else 1
 
-              with st.expander(
-                  f"Q{q['question_number']}: {prompt_text[:45]}..."
-                  f" ({away_team_name} @ {home_team_name})",
-                  expanded=True,
-              ):
-                col_away_logo, col_matchup_txt, col_home_logo = st.columns(
-                    [1, 4, 1]
+              st.markdown(
+                  f"""
+                  <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                          <span style="font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: {user_team_color}; letter-spacing: 1px;">QUESTION {q['question_number']}</span>
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                              <img src="{away_info['logo']}" style="width: 20px; height: 20px;" />
+                              <span style="font-size: 12px; color: #cbd5e1; font-weight: 600;">{away_team_name}</span>
+                              <span style="color: #64748b;">@</span>
+                              <img src="{home_info['logo']}" style="width: 20px; height: 20px;" />
+                              <span style="font-size: 12px; color: #cbd5e1; font-weight: 600;">{home_team_name}</span>
+                          </div>
+                      </div>
+                      <div style="font-size: 15px; font-weight: 600; color: #ffffff; margin-bottom: 14px; line-height: 1.4;">{prompt_text}</div>
+                  """,
+                  unsafe_allow_html=True,
+              )
+
+              col_pick, col_wager = st.columns(2)
+              with col_pick:
+                picks[q["id"]] = st.radio(
+                    f"Pick Q{q['question_number']}",
+                    ["Yes", "No"],
+                    index=pick_index,
+                    key=(
+                        f"pick_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
+                    ),
+                    horizontal=True,
+                    disabled=is_locked,
+                    label_visibility="collapsed",
                 )
-                with col_away_logo:
-                  st.image(away_info["logo"], width=35)
-                with col_matchup_txt:
-                  st.markdown(
-                      f"""
-                                        <div style="text-align:center; padding-top:2px;">
-                                            <span class="matchup-team-title" style="font-size:20px;">{away_team_name}</span>
-                                            <span style="color:#cbd5e1; font-weight:bold; margin: 0 6px;">@</span>
-                                            <span class="matchup-team-title" style="font-size:20px;">{home_team_name}</span>
-                                        </div>
-                                    """,
-                      unsafe_allow_html=True,
-                  )
-                with col_home_logo:
-                  st.image(home_info["logo"], width=35)
+              with col_wager:
+                wagers[q["id"]] = st.number_input(
+                    f"Wager Q{q['question_number']} Tokens",
+                    min_value=0,
+                    max_value=true_global_tokens_bet,
+                    value=default_wager_val,
+                    key=(
+                        f"wager_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
+                    ),
+                    disabled=is_locked,
+                )
 
-                st.markdown(f"**Question: {prompt_text}**")
+              st.markdown("</div>", unsafe_allow_html=True)
 
-                col_pick, col_wager = st.columns([1, 1])
-                with col_pick:
-                  picks[q["id"]] = st.radio(
-                      f"Pick Q{q['question_number']}",
-                      ["Yes", "No"],
-                      index=pick_index,
-                      key=(
-                          f"pick_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
-                      ),
-                      horizontal=True,
-                      disabled=is_locked,
-                  )
-                with col_wager:
-                  wagers[q["id"]] = st.number_input(
-                      f"Wager Q{q['question_number']}",
-                      min_value=0,
-                      max_value=true_global_tokens_bet,
-                      value=default_wager_val,
-                      key=(
-                          f"wager_w{selected_week}_{q['id']}_{st.session_state.form_refresh}"
-                      ),
-                      disabled=is_locked,
-                  )
-
-            st.markdown("### 🏈 Bonus Touchdown Scorer Pick")
-            st.caption(
-                "Name 1 player to score a TD this week (Rushing/Receiving"
-                " only!). Correct pick = Bonus Tokens!"
+            st.markdown(
+                """
+                <div style="background: linear-gradient(135deg, rgba(30, 58, 138, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #38bdf8; padding: 14px 18px; border-radius: 12px; margin: 20px 0 14px 0;">
+                    <b style="color: #fff; font-size: 15px;">🏈 BONUS TOUCHDOWN SCORER</b>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Name 1 player to score a touchdown this week (rushing/receiving only). Correct pick yields +5 bonus tokens!</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
             td_pick = st.text_input(
@@ -3454,6 +3457,7 @@ else:
                     f"td_scorer_w{selected_week}_{st.session_state.form_refresh}"
                 ),
                 disabled=is_locked,
+                label_visibility="collapsed",
             )
 
             total_wagered = sum(wagers.values())
@@ -5347,7 +5351,7 @@ else:
               st.rerun()
           st.divider()
 
-        with st.expander("⚡ Fetch Live ESPN Scores for Reference", expanded=False):
+        with st.expander("🛡️ Fetch Live ESPN Scores for Reference", expanded=False):
           st.caption(
               "Pull live game scores from ESPN to verify outcomes before"
               " grading below."
@@ -5709,47 +5713,20 @@ else:
             u_net[u] = u_net.get(u, 0) + 5
 
           if u_net:
-            best_u_id = max(u_net, key=u_net.get)
-            worst_u_id = min(u_net, key=u_net.get)
+            top_uid = max(u_net, key=u_net.get)
+            bottom_uid = min(u_net, key=u_net.get)
+            
+            top_prof = supabase.table("profiles").select("full_name").eq("id", top_uid).single().execute().data
+            bot_prof = supabase.table("profiles").select("full_name").eq("id", bottom_uid).single().execute().data
+            
+            if top_prof and u_net[top_uid] > 0:
+              top_winner_str = f"{top_prof['full_name']} (+{u_net[top_uid]} 🪙)"
+            if bot_prof and u_net[bottom_uid] < 0:
+              biggest_loser_str = f"{bot_prof['full_name']} ({u_net[bottom_uid]} 🪙)"
 
-            b_prof = (
-                supabase.table("profiles")
-                .select("full_name")
-                .eq("id", best_u_id)
-                .single()
-                .execute()
-                .data
-            )
-            w_prof = (
-                supabase.table("profiles")
-                .select("full_name")
-                .eq("id", worst_u_id)
-                .single()
-                .execute()
-                .data
-            )
-
-            if b_prof and u_net[best_u_id] > 0:
-              top_winner_str = f"{b_prof['full_name']} (+{u_net[best_u_id]} tokens)"
-            if w_prof and u_net[worst_u_id] < 0:
-              biggest_loser_str = (
-                  f"{w_prof['full_name']} ({u_net[worst_u_id]} tokens)"
-              )
-
-        top_player_res = (
-            supabase.table("profiles")
-            .select("full_name, tokens")
-            .order("tokens", desc=True)
-            .limit(1)
-            .execute()
-            .data
-        )
-        leader_str = (
-            f"{top_player_res[0]['full_name']}"
-            f" ({top_player_res[0]['tokens']} Tokens)"
-            if top_player_res
-            else "TBD"
-        )
+        all_profiles_ann = get_cached_profiles()
+        leader_p = max(all_profiles_ann, key=lambda x: x["tokens"]) if all_profiles_ann else None
+        leader_str = f"{leader_p['full_name']} ({leader_p['tokens']} 🪙)" if leader_p else "TBD"
 
         announcement_template = f"""🏈 *TOUCHDOWN TOKENS - WEEK {ann_week} IS LIVE!* 🏈
 
