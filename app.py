@@ -100,8 +100,8 @@ def send_verification_email(to_email, verification_link):
 # --- SUPABASE CONFIGURATION ---
 def get_supabase_client() -> Client:
   if "supabase_client" not in st.session_state:
-    url = os.environ.get("SUPABASE_URL", "")
-    key = os.environ.get("SUPABASE_KEY", "")
+    url = os.environ.get("SUPABASE_URL", "") or st.secrets.get("SUPABASE_URL", "")
+    key = os.environ.get("SUPABASE_KEY", "") or st.secrets.get("SUPABASE_KEY", "")
     st.session_state.supabase_client = create_client(url, key)
   return st.session_state.supabase_client
 
@@ -126,9 +126,9 @@ elif "access_token" in query_params:
 st.markdown(
     """
     <script>
-    if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
+    if (window.location.hash && window.location.hash.includes('access_token')) {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token') || '';
+        const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token') || accessToken;
         const type = hashParams.get('type');
         
@@ -263,8 +263,8 @@ def get_true_global_token_balance(target_user_id):
 def recalculate_all_user_balances(supabase_client):
   admin_supabase = supabase_client
   try:
-    service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
-    url = os.environ.get("SUPABASE_URL", "")
+    service_key = os.environ.get("SUPABASE_SERVICE_KEY", "") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
+    url = os.environ.get("SUPABASE_URL", "") or st.secrets.get("SUPABASE_URL", "")
     if service_key and url:
       admin_supabase = create_client(url, service_key)
   except Exception:
@@ -1693,8 +1693,8 @@ elif st.session_state.user is None:
             if reset_email:
               try:
                 admin_supabase = supabase
-                service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
-                url = os.environ.get("SUPABASE_URL", "")
+                service_key = os.environ.get("SUPABASE_SERVICE_KEY", "") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
+                url = os.environ.get("SUPABASE_URL", "") or st.secrets.get("SUPABASE_URL", "")
                 
                 if service_key and url:
                   admin_supabase = create_client(url, service_key)
@@ -4503,8 +4503,8 @@ else:
         try:
           user_email_addr = st.session_state.user.email
           admin_supabase = supabase
-          service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
-          url = os.environ.get("SUPABASE_URL", "")
+          service_key = os.environ.get("SUPABASE_SERVICE_KEY", "") or st.secrets.get("SUPABASE_SERVICE_KEY", "")
+          url = os.environ.get("SUPABASE_URL", "") or st.secrets.get("SUPABASE_URL", "")
           
           if service_key and url:
             admin_supabase = create_client(url, service_key)
