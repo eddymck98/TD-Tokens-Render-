@@ -4801,8 +4801,7 @@ else:
                     key=f"sel_kick_member_{l_id}"
                 )
                 confirm_kick = st.checkbox(
-                    f"I confirm I want to remove {target_kick_name} from"
-                    f" {l_name}",
+                    f"I confirm I want to remove this member from {l_name}",
                     key=f"chk_confirm_kick_{l_id}"
                 )
 
