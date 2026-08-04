@@ -5612,7 +5612,7 @@ else:
                       .data
                   )
                   if champ_prof_data:
-                    ub = champ_prof_data.get("unlocked_badges", [])
+                  ub = champ_prof_data.get("unlocked_badges", [])
                   if not isinstance(ub, list):
                     ub = []
                   if "🏆 League Champion" not in ub:
@@ -5645,55 +5645,55 @@ else:
             except Exception as e:
               st.error(f"Error archiving season: {e}")
 
-    elif admin_sec == "App Access Control":
-      st.markdown(
-          """
-          <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #ef4444; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
-              <h3 style="color: #f87171; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🔒 APP-WIDE SIGN-IN & SIGN-UP LOCK CONTROLS</h3>
-              <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Temporarily lock user sign-ins or new account sign-ups during maintenance.</p>
-          </div>
-          """,
-          unsafe_allow_html=True,
-      )
-
-      curr_signin_locked = is_signin_locked
-      curr_signup_locked = is_signup_locked
-
-      with st.form("app_access_control_form"):
-        new_signin_lock = st.toggle(
-            "🔒 Lock User Sign-Ins (Prevent existing users from logging in)",
-            value=curr_signin_locked,
-        )
-        new_signup_lock = st.toggle(
-            "🔒 Lock New Sign-Ups (Prevent new account registrations)",
-            value=curr_signup_locked,
+      elif admin_sec == "App Access Control":
+        st.markdown(
+            """
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #ef4444; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #f87171; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🔒 APP-WIDE SIGN-IN & SIGN-UP LOCK CONTROLS</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Temporarily lock user sign-ins or new account sign-ups during maintenance.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-        st.write("")
-        submit_access_ctrl = st.form_submit_button(
-            "Save Access Controls 💾", type="primary"
-        )
-        if submit_access_ctrl:
-          supabase.table("weekly_questions").delete().eq(
-              "week_number", 998
-          ).execute()
-          supabase.table("weekly_questions").insert({
-              "week_number": 998,
-              "question_number": 99,
-              "question_text": "SIGNIN LOCK SETTING",
-              "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
-          }).execute()
+        curr_signin_locked = is_signin_locked
+        curr_signup_locked = is_signup_locked
 
-          supabase.table("weekly_questions").delete().eq(
-              "week_number", 997
-          ).execute()
-          supabase.table("weekly_questions").insert({
-              "week_number": 997,
-              "question_number": 99,
-              "question_text": "SIGNUP LOCK SETTING",
-              "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
-          }).execute()
+        with st.form("app_access_control_form"):
+          new_signin_lock = st.toggle(
+              "🔒 Lock User Sign-Ins (Prevent existing users from logging in)",
+              value=curr_signin_locked,
+          )
+          new_signup_lock = st.toggle(
+              "🔒 Lock New Sign-Ups (Prevent new account registrations)",
+              value=curr_signup_locked,
+          )
 
-          st.cache_data.clear()
-          st.success("App access controls successfully updated!")
-          st.rerun()
+          st.write("")
+          submit_access_ctrl = st.form_submit_button(
+              "Save Access Controls 💾", type="primary"
+          )
+          if submit_access_ctrl:
+            supabase.table("weekly_questions").delete().eq(
+                "week_number", 998
+            ).execute()
+            supabase.table("weekly_questions").insert({
+                "week_number": 998,
+                "question_number": 99,
+                "question_text": "SIGNIN LOCK SETTING",
+                "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
+            }).execute()
+
+            supabase.table("weekly_questions").delete().eq(
+                "week_number", 997
+            ).execute()
+            supabase.table("weekly_questions").insert({
+                "week_number", 997,
+                "question_number": 99,
+                "question_text": "SIGNUP LOCK SETTING",
+                "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
+            }).execute()
+
+            st.cache_data.clear()
+            st.success("App access controls successfully updated!")
+            st.rerun()
