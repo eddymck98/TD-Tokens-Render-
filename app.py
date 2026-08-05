@@ -685,7 +685,11 @@ else:
         col1, col2, col3 = st.columns(3)
         with col1: st.metric("Net Tokens Earned", f"{'+' if net_total >= 0 else ''}{net_total} 🪙")
         with col2: st.metric("Questions Correct", f"{correct_count} / {total_bets_placed}")
-        with col3: st.metric("TD Scorer Bonus", f"+{td_bonus} 🪙" if td_bonus > 0 else "0 🪙") if td_is_graded else st.metric("TD Scorer Bonus", "Pending ⏳")
+        with col3:
+          if td_is_graded:
+            st.metric("TD Scorer Bonus", f"+{td_bonus} 🪙" if td_bonus > 0 else "0 🪙")
+          else:
+            st.metric("TD Scorer Bonus", "Pending ⏳")
         st.markdown(f"""<div class="summary-box"><b>Week {latest_graded_week} Breakdown:</b><br>• <b>Question Wins:</b> +{bet_gains} Tokens (Net Profit)<br>• <b>Question Losses:</b> -{bet_losses} Tokens<br>• <b>Touchdown Scorer Pick:</b> '{td_player}' ({td_display_status})</div>""", unsafe_allow_html=True)
 
     st.divider(); st.subheader("📊 Token History Graph")
