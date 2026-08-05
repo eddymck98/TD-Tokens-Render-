@@ -1569,9 +1569,9 @@ def recalculate_all_user_balances(supabase_client):
             w_ans = b.get("weekly_questions", {}).get("winning_answer")
             if w_ans in ["Yes", "No"]:
               if b["pick"] == w_ans:
-                curr_tokens += (b["wager_amount"] * 2)
+                curr_tokens += b["wager_amount"]
               else:
-                pass
+                curr_tokens -= b["wager_amount"]
           if w in td_wins_map:
             curr_tokens += 5
 
@@ -2435,9 +2435,9 @@ else:
           user_weekly_net[u] = 0
         if w_ans in ["Yes", "No"]:
           if b["pick"] == w_ans:
-            user_weekly_net[u] += (b["wager_amount"] * 2)
+            user_weekly_net[u] += b["wager_amount"]
           else:
-            pass
+            user_weekly_net[u] -= b["wager_amount"]
       for td in mvp_tds:
         u = td["user_id"]
         user_weekly_net[u] = user_weekly_net.get(u, 0) + 5
@@ -2613,7 +2613,7 @@ else:
           w_ans = b.get("weekly_questions", {}).get("winning_answer")
           if w_ans in ["Yes", "No"]:
             if b["pick"] == w_ans:
-              bet_gains += (b["wager_amount"] * 2)
+              bet_gains += b["wager_amount"]
               correct_count += 1
             else:
               bet_losses += b["wager_amount"]
@@ -2712,9 +2712,9 @@ else:
           w_ans = b.get("weekly_questions", {}).get("winning_answer")
           if w_ans in ["Yes", "No"]:
             if b["pick"] == w_ans:
-              curr_tokens += (b["wager_amount"] * 2)
+              curr_tokens += b["wager_amount"]
             else:
-              pass
+              curr_tokens -= b["wager_amount"]
         if w in td_wins_map:
           curr_tokens += 5
 
