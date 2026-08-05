@@ -1569,9 +1569,9 @@ def recalculate_all_user_balances(supabase_client):
             w_ans = b.get("weekly_questions", {}).get("winning_answer")
             if w_ans in ["Yes", "No"]:
               if b["pick"] == w_ans:
-                curr_tokens += b["wager_amount"]
+                curr_tokens += (b["wager_amount"] * 2)
               else:
-                curr_tokens -= b["wager_amount"]
+                pass
           if w in td_wins_map:
             curr_tokens += 5
 
@@ -2311,16 +2311,17 @@ else:
 
         for b in curr_user_bets:
           q_num = b.get("weekly_questions", {}).get("question_number", "?")
+          raw_q_text_home = b.get("weekly_questions", {}).get("question_text", "")
           q_txt = (
-              b.get("weekly_questions", {})
-              .get("question_text", "")
-              .split(" | MATCHUP: ")[0]
+              raw_q_text_home.split(" | MATCHUP: ")[0]
+              if " | MATCHUP: " in raw_q_text_home
+              else raw_q_text_home
           )
           pick_val = b["pick"]
           wager_amt = b["wager_amount"]
           w_ans = b.get("weekly_questions", {}).get("winning_answer", "Pending")
 
-          # Dynamic Neon Glow based on Result
+          # Dynamic Neon Glow with Neutral Blue for Pending State
           if w_ans in ["Yes", "No"]:
             if pick_val == w_ans:
               card_border_glow = "#10b981"
@@ -2329,26 +2330,24 @@ else:
               card_border_glow = "#ef4444"
               card_shadow_glow = "rgba(239, 68, 68, 0.4)"
           else:
-            card_border_glow = user_team_color
-            card_shadow_glow = f"{user_team_color}33"
+            card_border_glow = "#38bdf8"
+            card_shadow_glow = "rgba(56, 189, 248, 0.3)"
 
-          st.markdown(
-              f"""
-              <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {card_border_glow}; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 4px 15px {card_shadow_glow}; display: flex; align-items: center; justify-content: space-between;">
-                  <div style="display: flex; align-items: center; gap: 12px; overflow: hidden;">
-                      <span style="font-family: 'Bebas Neue'; font-size: 16px; color: {card_border_glow}; min-width: 32px;">Q{q_num}</span>
-                      <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                          <div style="font-size: 13px; font-weight: 600; color: #ffffff;">{q_txt}</div>
-                      </div>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: 10px;">
-                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">Pick: <b style="color: {user_team_color};">{pick_val}</b></span>
-                      <span style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">Wager: <b>{wager_amt} 🪙</b></span>
-                  </div>
-              </div>
-              """,
-              unsafe_allow_html=True,
-          )
+          with st.expander(f"Q{q_num}: {q_txt} (Pick: {pick_val} | Wager: {wager_amt} 🪙)", expanded=False):
+            st.markdown(
+                f"""
+                <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {card_border_glow}; border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 15px {card_shadow_glow};">
+                    <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">{raw_q_text_home}</div>
+                    <div style="display: flex; gap: 15px; font-size: 13px; color: #cbd5e1;">
+                        <span>Your Pick: <b style="color: {user_team_color};">{pick_val}</b></span>
+                        <span>Wager: <b>{wager_amt} 🪙</b></span>
+                        <span>Status: <b style="color: {card_border_glow};">{w_ans if w_ans in ['Yes', 'No'] else 'Pending ⏳'}</b></span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
           share_lines.append(f"Q{q_num}: {pick_val} ({wager_amt} tokens)")
 
         td_name = curr_user_td[0]["player_name"] if curr_user_td else "None"
@@ -2366,7 +2365,7 @@ else:
 
         st.markdown(
             f"""
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {td_glow}; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 4px 15px {td_shadow}; display: flex; align-items: center; justify-content: space-between;">
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {td_glow}; border-radius: 10px; padding: 10px 14px; margin-top: 10px; margin-bottom: 12px; box-shadow: 0 4px 15px {td_shadow}; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-family: 'Bebas Neue'; font-size: 16px; color: {td_glow};">TD</span>
                     <div style="font-size: 13px; font-weight: 600; color: #ffffff;">Bonus Touchdown Scorer</div>
@@ -2429,9 +2428,9 @@ else:
           user_weekly_net[u] = 0
         if w_ans in ["Yes", "No"]:
           if b["pick"] == w_ans:
-            user_weekly_net[u] += b["wager_amount"]
+            user_weekly_net[u] += (b["wager_amount"] * 2)
           else:
-            user_weekly_net[u] -= b["wager_amount"]
+            pass
       for td in mvp_tds:
         u = td["user_id"]
         user_weekly_net[u] = user_weekly_net.get(u, 0) + 5
@@ -2607,7 +2606,7 @@ else:
           w_ans = b.get("weekly_questions", {}).get("winning_answer")
           if w_ans in ["Yes", "No"]:
             if b["pick"] == w_ans:
-              bet_gains += b["wager_amount"]
+              bet_gains += (b["wager_amount"] * 2)
               correct_count += 1
             else:
               bet_losses += b["wager_amount"]
@@ -2659,7 +2658,7 @@ else:
             f"""
                 <div class="summary-box">
                     <b>Week {latest_graded_week} Breakdown:</b><br>
-                    • <b>Question Wins:</b> +{bet_gains} Tokens<br>
+                    • <b>Question Wins:</b> +{bet_gains} Tokens Returned<br>
                     • <b>Question Losses:</b> -{bet_losses} Tokens<br>
                     • <b>Touchdown Scorer Pick:</b> '{td_player}' ({td_display_status})
                 </div>
@@ -2706,9 +2705,9 @@ else:
           w_ans = b.get("weekly_questions", {}).get("winning_answer")
           if w_ans in ["Yes", "No"]:
             if b["pick"] == w_ans:
-              curr_tokens += b["wager_amount"]
+              curr_tokens += (b["wager_amount"] * 2)
             else:
-              curr_tokens -= b["wager_amount"]
+              pass
         if w in td_wins_map:
           curr_tokens += 5
 
@@ -3148,7 +3147,7 @@ else:
             """)
 
   # ------------------------------------------
-  # TAB 3: PLACE BETS (UPGRADED WITH COLLAPSIBLE CARDS & QUICK CHIPS)
+  # TAB 3: PLACE BETS (UPGRADED WITH EXPANDED BY DEFAULT CARDS)
   # ------------------------------------------
   with tab_bet:
     st.markdown(
@@ -3156,7 +3155,7 @@ else:
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
                 <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 38px; color: #ffffff; letter-spacing: 2px; margin: 0;">WEEKLY PREDICTIONS & WAGERS</h2>
-                <p style="color: #94a3b8; font-size: 14px; margin: 0;">Expand matchups, lock in your predictions, and assign your token stakes.</p>
+                <p style="color: #94a3b8; font-size: 14px; margin: 0;">Review matchups, lock in your predictions, and assign your token stakes.</p>
             </div>
             <div>
                 <a href="https://www.espn.com/nfl/schedule" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255, 255, 255, 0.2); border-left: 4px solid #38bdf8; color: #ffffff !important; padding: 10px 18px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1.2px; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s ease;">
@@ -3357,7 +3356,7 @@ else:
                 """
                 <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid #fbbf24; padding: 14px 18px; border-radius: 12px; margin-bottom: 20px;">
                     <b style="color: #fff; font-size: 15px;">MATCHUP PREDICTION SLATE</b>
-                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Expand the match cards below to configure your picks and assign token wagers.</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">Matchup cards are expanded by default so you can easily review and configure your picks and token stakes.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3395,7 +3394,7 @@ else:
               pick_index = 0 if default_pick_val == "Yes" else 1
 
               expander_label = f"Matchup Q{q['question_number']}: {away_team_name} @ {home_team_name} (Wager: {default_wager_val} 🪙)"
-              with st.expander(expander_label, expanded=False):
+              with st.expander(expander_label, expanded=True):
                 st.markdown(
                     f"""
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px; background: rgba(30, 41, 59, 0.4); border-radius: 10px;">
@@ -3674,7 +3673,7 @@ else:
           ):
             outcome = "⏳ Pending"
           elif b["pick"] == w_ans:
-            outcome = f"✅ Won (+{b['wager_amount']} 🪙)"
+            outcome = f"✅ Won (+{b['wager_amount'] * 2} 🪙 Returned)"
           else:
             outcome = f"❌ Lost (-{b['wager_amount']} 🪙)"
 
@@ -3841,7 +3840,7 @@ else:
             my_pill_border = "#10b981" if my_won else "#ef4444"
             my_pill_color = "#34d399" if my_won else "#f87171"
             my_status_text = (
-                f"Won (+{my_wager}🪙)" if my_won else f"Lost (-{my_wager}🪙)"
+                f"Won (+{my_wager * 2}🪙)" if my_won else f"Lost (-{my_wager}🪙)"
             )
 
             if riv_pick in ["Yes", "No"]:
@@ -3853,7 +3852,7 @@ else:
               riv_pill_border = "#10b981" if riv_won else "#ef4444"
               riv_pill_color = "#34d399" if riv_won else "#f87171"
               riv_status_text = (
-                  f"Won (+{riv_wager}🪙)" if riv_won else f"Lost (-{riv_wager}🪙)"
+                  f"Won (+{riv_wager * 2}🪙)" if riv_won else f"Lost (-{riv_wager}🪙)"
               )
             else:
               riv_pill_bg = "rgba(100, 116, 139, 0.2)"
@@ -4756,6 +4755,7 @@ else:
         l_id = selected_league["id"]
         l_name = selected_league["league_name"]
         l_code = selected_league["invite_code"]
+        l_pwd_val = selected_league.get("league_password", "")
 
         st.write("")
 
@@ -4783,6 +4783,7 @@ else:
             new_l_name = st.text_input("League Name", value=l_name, key=f"input_l_name_{l_id}")
             new_l_pwd = st.text_input(
                 "League Password / Passcode (Leave blank for public)",
+                value=l_pwd_val,
                 type="password",
                 placeholder="Secure access code",
                 key=f"input_l_pwd_{l_id}"
@@ -5577,234 +5578,198 @@ else:
             unsafe_allow_html=True,
         )
 
-        all_p_export = get_cached_profiles()
-        if all_p_export:
-          export_df = pd.DataFrame(all_p_export)
-          csv_data = export_df.to_csv(index=False).encode("utf-8")
-
+        all_profiles_csv = get_cached_profiles()
+        if all_profiles_csv:
+          df_export = pd.DataFrame(all_profiles_csv)
+          csv_data = df_export.to_csv(index=False).encode("utf-8")
           st.download_button(
-              label="📥 Download Players CSV 📄",
+              label="📥 Download League Profiles CSV",
               data=csv_data,
-              file_name="touchdown_tokens_players_export.csv",
+              file_name="touchdown_tokens_profiles.csv",
               mime="text/csv",
-              type="primary",
+              type="primary"
           )
         else:
-          st.info("No data available to export.")
+          st.info("No profile data available for export.")
 
       elif admin_sec == "League Chat Announcement":
         st.markdown(
             """
             <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #c084fc; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
                 <h3 style="color: #c084fc; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">📢 LEAGUE CHAT ANNOUNCEMENT</h3>
-                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Broadcast an official commissioner announcement directly into all mini-league chat feeds.</p>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Broadcast an official commissioner announcement directly into all league chat feeds.</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        with st.form("announcement_form"):
-          announcement_text = st.text_area(
+        with st.form("admin_announcement_form"):
+          announcement_msg = st.text_area(
               "Announcement Message",
-              placeholder="e.g., Reminder: Week 5 kickoff lockout is in 1 hour!",
+              placeholder="e.g., 🚨 Week 5 games are locked! Good luck everyone!",
           )
-          st.write("")
+          broadcast_all = st.checkbox(
+              "Broadcast to ALL mini-leagues and global feed", value=True
+          )
+
           submit_announcement = st.form_submit_button(
-              "Broadcast Announcement 📢", type="primary"
+              "Publish Announcement 📢", type="primary"
           )
 
           if submit_announcement:
-            if not announcement_text.strip():
-              st.warning("Please enter announcement text.")
-            elif contains_profanity(announcement_text):
-              st.error(
-                  "⚠️ Announcement text contains restricted language. Please"
-                  " revise."
-              )
+            if not announcement_msg.strip():
+              st.warning("Please enter an announcement message.")
             else:
               try:
-                all_leagues_res = (
-                    supabase.table("leagues").select("id").execute().data
-                )
-                if all_leagues_res:
-                  for l_item in all_leagues_res:
-                    supabase.table("trash_talk").insert({
-                        "user_id": user_id,
-                        "message": (
-                            "📢 *ADMIN ANNOUNCEMENT:* "
-                            + announcement_text.strip()
-                        ),
-                        "league_id": l_item["id"],
-                    }).execute()
+                leagues_to_target = ["00000000-0000-0000-0000-000000000001"]
+                if broadcast_all:
+                  all_custom_l = (
+                      supabase.table("leagues").select("id").execute().data
+                  )
+                  if all_custom_l:
+                    leagues_to_target = [l["id"] for l in all_custom_l]
 
-                st.cache_data.clear()
-                st.success(
-                    "Announcement successfully broadcast to all league chats!"
-                )
-                st.rerun()
+                for l_id_target in leagues_to_target:
+                  supabase.table("trash_talk").insert({
+                      "user_id": user_id,
+                      "message": f"📢 [COMMISSIONER ANNOUNCEMENT]: {announcement_msg.strip()}",
+                      "league_id": l_id_target,
+                  }).execute()
+
+                st.success("Official announcement broadcast successfully!")
               except Exception as e:
                 st.error(f"Error broadcasting announcement: {e}")
 
       elif admin_sec == "Archive & Reset Season":
         st.markdown(
             """
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #f59e0b; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
-                <h3 style="color: #f59e0b; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏛️ GLOBAL HALL OF FAME ARCHIVE & SEASON RESET</h3>
-                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Archive current global standings into the Hall of Fame and optionally reset all token balances back to 10.</p>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #ef4444; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #ef4444; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🏆 ARCHIVE & RESET SEASON</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Crown the final global season champion, archive standings, and reset token banks for a fresh new season.</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        with st.form("archive_season_form"):
+        with st.form("archive_reset_form"):
           season_title_input = st.text_input(
-              "Season Title", value="2026 Regular Season"
+              "Global Season Title", value="2026 NFL Season"
           )
-          reset_tokens_checkbox = st.checkbox(
-              "Reset all player token balances back to 10 for the new season"
-          )
-          confirm_phrase = st.text_input(
-              "Type 'ARCHIVE SEASON' to confirm", placeholder="ARCHIVE SEASON"
+          confirm_reset = st.checkbox(
+              "I confirm I want to crown the champion, archive global"
+              " standings, and reset all token balances back to 10."
           )
 
-          st.write("")
-          submit_archive = st.form_submit_button(
-              "Archive Season & Crown Champion 🏆", type="primary"
+          submit_reset = st.form_submit_button(
+              "Execute Season Archive & Reset 🚀", type="primary"
           )
 
-          if submit_archive:
-            if confirm_phrase != "ARCHIVE SEASON":
-              st.error(
-                  "Please type exactly 'ARCHIVE SEASON' to confirm this"
-                  " action."
-              )
+          if submit_reset:
+            if not confirm_reset:
+              st.warning("Please check the confirmation box to proceed.")
             else:
               try:
-                all_p_snapshot = get_cached_profiles()
-                all_p_sorted = sorted(
-                    all_p_snapshot, key=lambda x: (-x["tokens"], x["full_name"])
+                all_p_snap = get_cached_profiles()
+                sorted_p_snap = sorted(
+                    all_p_snap, key=lambda x: (-x["tokens"], x["full_name"])
                 )
 
-                if all_p_sorted:
-                  overall_champ_id = all_p_sorted[0]["id"]
-                  champ_prof_data = (
+                if sorted_p_snap:
+                  champ_uid = sorted_p_snap[0]["id"]
+                  champ_p_data = (
                       supabase.table("profiles")
                       .select("unlocked_badges")
-                      .eq("id", overall_champ_id)
+                      .eq("id", champ_uid)
                       .single()
                       .execute()
                       .data
                   )
-                  if champ_prof_data:
-                    ub = champ_prof_data.get("unlocked_badges", [])
-                    if not isinstance(ub, list):
-                      ub = []
-                    if "🏆 League Champion" not in ub:
-                      ub.append("🏆 League Champion")
+                  if champ_p_data:
+                    u_b_list = champ_p_data.get("unlocked_badges", [])
+                    if not isinstance(u_b_list, list):
+                      u_b_list = []
+                    if "🏆 League Champion" not in u_b_list:
+                      u_b_list.append("🏆 League Champion")
                       supabase.table("profiles").update({
-                          "unlocked_badges": ub,
+                          "unlocked_badges": u_b_list,
                           "selected_title": "👑 League Champion",
-                      }).eq("id", overall_champ_id).execute()
+                      }).eq("id", champ_uid).execute()
 
                 supabase.table("archived_seasons").insert({
                     "league_id": "00000000-0000-0000-0000-000000000001",
                     "season_label": season_title_input.strip(),
-                    "standings_json": all_p_sorted,
+                    "standings_json": sorted_p_snap,
                 }).execute()
 
-                if reset_tokens_checkbox:
-                  for p_item in all_p_snapshot:
-                    supabase.table("profiles").update({"tokens": 10}).eq(
-                        "id", p_item["id"]
-                    ).execute()
+                supabase.table("profiles").update({"tokens": 10}).execute()
+                supabase.table("user_bets").delete().neq(
+                    "week_number", -999
+                ).execute()
+                supabase.table("touchdown_picks").delete().neq(
+                    "week_number", -999
+                ).execute()
 
                 st.cache_data.clear()
                 st.balloons()
                 st.success(
-                    f"Successfully archived '{season_title_input}' into the"
-                    " global Hall of Fame!"
-                    f" {'All player tokens have been reset to 10.' if reset_tokens_checkbox else ''}"
+                    f"Successfully archived '{season_title_input}' and reset"
+                    " all player token banks to 10 for the new season!"
                 )
                 st.rerun()
               except Exception as e:
-                st.error(f"Error archiving season: {e}")
+                st.error(f"Error resetting season: {e}")
 
       elif admin_sec == "App Access Control":
         st.markdown(
             """
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #ef4444; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
-                <h3 style="color: #f87171; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🔒 APP-WIDE SIGN-IN & SIGN-UP LOCK CONTROLS</h3>
-                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Temporarily lock user sign-ins or new account sign-ups during maintenance.</p>
+            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #38bdf8; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
+                <h3 style="color: #38bdf8; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; margin: 0 0 5px 0;">🔒 APP ACCESS CONTROL</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin: 0;">Temporarily lock or unlock sign-ins and sign-ups across the platform.</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        curr_signin_locked = is_signin_locked
-        curr_signup_locked = is_signup_locked
-
         with st.form("app_access_control_form"):
-          new_signin_lock = st.toggle(
-              "🔒 Lock User Sign-Ins (Prevent existing users from logging in)",
-              value=curr_signin_locked,
+          cur_signin_lock = is_signin_locked
+          cur_signup_lock = is_signup_locked
+
+          lock_signin_toggle = st.toggle(
+              "Lock Sign-Ins (Disable user logins)", value=cur_signin_lock
           )
-          new_signup_lock = st.toggle(
-              "🔒 Lock New Sign-Ups (Prevent new account registrations)",
-              value=curr_signup_locked,
+          lock_signup_toggle = st.toggle(
+              "Lock Sign-Ups (Disable new account registrations)",
+              value=cur_signup_lock,
           )
 
-          st.write("")
-          submit_access_ctrl = st.form_submit_button(
-              "Save Access Controls 💾", type="primary"
+          save_access_ctrl = st.form_submit_button(
+              "Save Access Control Settings 💾", type="primary"
           )
-          if submit_access_ctrl:
-            supabase.table("weekly_questions").delete().eq(
-                "week_number", 998
-            ).execute()
-            supabase.table("weekly_questions").insert({
-                "week_number": 998,
-                "question_number": 99,
-                "question_text": "SIGNIN LOCK SETTING",
-                "winning_answer": "LOCKED" if new_signin_lock else "UNLOCKED",
-            }).execute()
 
-            supabase.table("weekly_questions").delete().eq(
-                "week_number", 997
-            ).execute()
-            supabase.table("weekly_questions").insert({
-                "week_number": 997,
-                "question_number": 99,
-                "question_text": "SIGNUP LOCK SETTING",
-                "winning_answer": "LOCKED" if new_signup_lock else "UNLOCKED",
-            }).execute()
+          if save_access_ctrl:
+            try:
+              supabase.table("weekly_questions").delete().eq(
+                  "week_number", 998
+              ).execute()
+              supabase.table("weekly_questions").insert({
+                  "week_number": 998,
+                  "question_number": 998,
+                  "question_text": "SIGNIN LOCK SETTING",
+                  "winning_answer": "LOCKED" if lock_signin_toggle else "OPEN",
+              }).execute()
 
-            st.cache_data.clear()
-            st.success("App access controls successfully updated!")
-            st.rerun()
+              supabase.table("weekly_questions").delete().eq(
+                  "week_number", 997
+              ).execute()
+              supabase.table("weekly_questions").insert({
+                  "week_number": 997,
+                  "question_number": 997,
+                  "question_text": "SIGNUP LOCK SETTING",
+                  "winning_answer": "LOCKED" if lock_signup_toggle else "OPEN",
+              }).execute()
 
-# --- OFFICIAL APP FOOTER WITH BUY ME A COFFEE ---
-st.markdown(
-    """
-    <div style="margin-top: 60px; margin-bottom: 30px; padding: 30px 20px; background: rgba(15, 23, 42, 0.85); border-top: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; text-align: center; backdrop-filter: blur(14px); box-shadow: 0 -10px 30px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 15px; flex-wrap: wrap;">
-            <a href="https://www.nfl.com" target="_blank" style="color: #94a3b8; font-size: 13px; text-decoration: none;">NFL Official Site</a>
-            <span style="color: #475569;">•</span>
-            <a href="https://www.espn.com/nfl" target="_blank" style="color: #94a3b8; font-size: 13px; text-decoration: none;">ESPN NFL Scoreboard</a>
-            <span style="color: #475569;">•</span>
-            <a href="https://buymeacoffee.com/ed.mckenna" target="_blank" style="color: #fbbf24; font-size: 13px; font-weight: bold; text-decoration: none;">☕ Support the App</a>
-        </div>
-        <p style="color: #64748b; font-size: 12px; line-height: 1.5; max-width: 600px; margin: 0 auto 15px auto;">
-            Touchdown Tokens is an independent, free-to-play recreational sports prediction platform built for community entertainment. All virtual tokens hold zero cash value. Not affiliated with or endorsed by the National Football League (NFL).
-        </p>
-        <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
-            &copy; 2026 Touchdown Tokens. All rights reserved. Designed & Engineered by Ed McKenna.
-        </div>
-        <div style="margin-top: 20px;">
-            <a href="https://buymeacoffee.com/ed.mckenna" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #000000; padding: 10px 22px; border-radius: 12px; font-family: 'Teko', sans-serif; font-size: 20px; letter-spacing: 1px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);">
-                ☕ Buy Me A Coffee
-            </a>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+              st.cache_data.clear()
+              st.success("App access control settings updated successfully!")
+              st.rerun()
+            except Exception as e:
+              st.error(f"Error updating access control: {e}")
