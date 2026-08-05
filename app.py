@@ -2325,23 +2325,28 @@ else:
           if w_ans in ["Yes", "No"]:
             if pick_val == w_ans:
               card_border_glow = "#10b981"
-              card_shadow_glow = "rgba(16, 185, 129, 0.4)"
+              card_shadow_glow = "rgba(16, 185, 129, 0.3)"
+              status_label = "Won ✅"
             else:
               card_border_glow = "#ef4444"
-              card_shadow_glow = "rgba(239, 68, 68, 0.4)"
+              card_shadow_glow = "rgba(239, 68, 68, 0.3)"
+              status_label = "Lost ❌"
           else:
             card_border_glow = "#38bdf8"
-            card_shadow_glow = "rgba(56, 189, 248, 0.3)"
+            card_shadow_glow = "rgba(56, 189, 248, 0.2)"
+            status_label = "Pending ⏳"
 
-          with st.expander(f"Q{q_num}: {q_txt} (Pick: {pick_val} | Wager: {wager_amt} 🪙)", expanded=False):
+          # Thinner, mobile-optimized card layout without matchup details
+          expander_title = f"Q{q_num}: {pick_val} ({wager_amt}🪙) — {status_label}"
+          with st.expander(expander_title, expanded=False):
             st.markdown(
                 f"""
-                <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {card_border_glow}; border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 15px {card_shadow_glow};">
-                    <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">{raw_q_text_home}</div>
-                    <div style="display: flex; gap: 15px; font-size: 13px; color: #cbd5e1;">
-                        <span>Your Pick: <b style="color: {user_team_color};">{pick_val}</b></span>
-                        <span>Wager: <b>{wager_amt} 🪙</b></span>
-                        <span>Status: <b style="color: {card_border_glow};">{w_ans if w_ans in ['Yes', 'No'] else 'Pending ⏳'}</b></span>
+                <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-left: 3px solid {card_border_glow}; border-radius: 8px; padding: 8px 10px; box-shadow: 0 2px 10px {card_shadow_glow};">
+                    <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 6px; line-height: 1.3;">{q_txt}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #cbd5e1;">
+                        <span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">Pick: <b style="color: {user_team_color};">{pick_val}</b></span>
+                        <span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">Wager: <b>{wager_amt} 🪙</b></span>
+                        <span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">Status: <b style="color: {card_border_glow};">{status_label}</b></span>
                     </div>
                 </div>
                 """,
@@ -2355,24 +2360,25 @@ else:
 
         if td_status is True:
           td_glow = "#10b981"
-          td_shadow = "rgba(16, 185, 129, 0.4)"
+          td_shadow = "rgba(16, 185, 129, 0.3)"
+          td_status_label = "Won (+5 🪙)"
         elif td_status is False:
           td_glow = "#ef4444"
-          td_shadow = "rgba(239, 68, 68, 0.4)"
+          td_shadow = "rgba(239, 68, 68, 0.3)"
+          td_status_label = "Missed ❌"
         else:
           td_glow = "#38bdf8"
-          td_shadow = "rgba(56, 189, 248, 0.3)"
+          td_shadow = "rgba(56, 189, 248, 0.2)"
+          td_status_label = "Pending ⏳"
 
         st.markdown(
             f"""
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid {td_glow}; border-radius: 10px; padding: 10px 14px; margin-top: 10px; margin-bottom: 12px; box-shadow: 0 4px 15px {td_shadow}; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-family: 'Bebas Neue'; font-size: 16px; color: {td_glow};">TD</span>
-                    <div style="font-size: 13px; font-weight: 600; color: #ffffff;">Bonus Touchdown Scorer</div>
+            <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-left: 3px solid {td_glow}; border-radius: 8px; padding: 8px 12px; margin-top: 8px; margin-bottom: 12px; box-shadow: 0 2px 10px {td_shadow}; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-family: 'Bebas Neue'; font-size: 14px; color: {td_glow};">TD BONUS</span>
+                    <span style="font-size: 12px; color: #ffffff;">{td_name}</span>
                 </div>
-                <div style="font-size: 12px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px;">
-                    Player: <b style="color: {td_glow};">{td_name}</b>
-                </div>
+                <span style="font-size: 11px; font-weight: 600; color: {td_glow}; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">{td_status_label}</span>
             </div>
             """,
             unsafe_allow_html=True,
@@ -5567,7 +5573,7 @@ else:
                 except Exception as e:
                   st.error(f"Error updating tokens: {e}")
 
-      elif admin_sec == "Export League Data (CSV)":
+        elif admin_sec == "Export League Data (CSV)":
         st.markdown(
             """
             <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #38bdf8; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
