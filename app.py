@@ -754,7 +754,8 @@ else:
           st.success("Profile updated successfully!"); st.rerun()
 
     if locked_title_info:
-      st.write(""); with st.expander("🔒 Locked Nametag Titles & How to Unlock Them"):
+      st.write("") 
+      with st.expander("🔒 Locked Nametag Titles & How to Unlock Them"):
         st.caption("Complete achievements and unlock badges to add these titles to your selectable collection!")
         for l_title, l_req in locked_title_info: st.markdown(f"• **{l_title}** — *Requirement:* {l_req}")
 
