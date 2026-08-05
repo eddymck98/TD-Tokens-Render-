@@ -5573,7 +5573,7 @@ else:
                 except Exception as e:
                   st.error(f"Error updating tokens: {e}")
 
-        elif admin_sec == "Export League Data (CSV)":
+    elif admin_sec == "Export League Data (CSV)":
         st.markdown(
             """
             <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-left: 4px solid #38bdf8; padding: 20px; border-radius: 16px; margin-bottom: 25px; backdrop-filter: blur(14px);">
