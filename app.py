@@ -2087,6 +2087,7 @@ else:
 
   true_global_tokens_sidebar = get_true_global_token_balance(user_id)
   active_tokens_display = true_global_tokens_sidebar
+  
   if available_weeks:
     latest_w_active = available_weeks[-1]
     is_latest_graded = False
@@ -2123,17 +2124,21 @@ else:
     if not is_latest_graded:
       user_active_bets = (
           supabase.table("user_bets")
-          .select("wager_amount")
+          .select("wager_amount, weekly_questions(winning_answer)")
           .eq("user_id", user_id)
           .eq("week_number", latest_w_active)
           .execute()
           .data
       )
-      total_wagered_active = (
-          sum([b["wager_amount"] for b in user_active_bets])
-          if user_active_bets
-          else 0
-      )
+      
+      total_wagered_active = 0
+      if user_active_bets:
+        for b in user_active_bets:
+          w_ans = b.get("weekly_questions", {}).get("winning_answer", "Pending")
+          # Prevents double deduction! Only deduct the wager from available balance if the question hasn't been graded yet
+          if w_ans not in ["Yes", "No"]:
+            total_wagered_active += b["wager_amount"]
+              
       active_tokens_display = max(
           0, true_global_tokens_sidebar - total_wagered_active
       )
@@ -2438,6 +2443,7 @@ else:
             user_weekly_net[u] += b["wager_amount"]
           else:
             user_weekly_net[u] -= b["wager_amount"]
+            
       for td in mvp_tds:
         u = td["user_id"]
         user_weekly_net[u] = user_weekly_net.get(u, 0) + 5
@@ -2665,7 +2671,7 @@ else:
             f"""
                 <div class="summary-box">
                     <b>Week {latest_graded_week} Breakdown:</b><br>
-                    • <b>Question Wins:</b> +{bet_gains} Tokens Returned<br>
+                    • <b>Question Wins:</b> +{bet_gains} Tokens (Net Profit)<br>
                     • <b>Question Losses:</b> -{bet_losses} Tokens<br>
                     • <b>Touchdown Scorer Pick:</b> '{td_player}' ({td_display_status})
                 </div>
@@ -3680,7 +3686,7 @@ else:
           ):
             outcome = "⏳ Pending"
           elif b["pick"] == w_ans:
-            outcome = f"✅ Won (+{b['wager_amount'] * 2} 🪙 Returned)"
+            outcome = f"✅ Won (+{b['wager_amount']} 🪙 Net)"
           else:
             outcome = f"❌ Lost (-{b['wager_amount']} 🪙)"
 
@@ -3847,7 +3853,7 @@ else:
             my_pill_border = "#10b981" if my_won else "#ef4444"
             my_pill_color = "#34d399" if my_won else "#f87171"
             my_status_text = (
-                f"Won (+{my_wager * 2}🪙)" if my_won else f"Lost (-{my_wager}🪙)"
+                f"Won (+{my_wager}🪙 Net)" if my_won else f"Lost (-{my_wager}🪙)"
             )
 
             if riv_pick in ["Yes", "No"]:
@@ -3859,7 +3865,7 @@ else:
               riv_pill_border = "#10b981" if riv_won else "#ef4444"
               riv_pill_color = "#34d399" if riv_won else "#f87171"
               riv_status_text = (
-                  f"Won (+{riv_wager * 2}🪙)" if riv_won else f"Lost (-{riv_wager}🪙)"
+                  f"Won (+{riv_wager}🪙 Net)" if riv_won else f"Lost (-{riv_wager}🪙)"
               )
             else:
               riv_pill_bg = "rgba(100, 116, 139, 0.2)"
